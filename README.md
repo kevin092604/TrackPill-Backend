@@ -15,6 +15,7 @@ src/
 |   `-- auth.middleware.js
 |-- models/
 |   |-- email-credential.model.js
+|   |-- pending-social-registration.model.js
 |   |-- provider-type.model.js
 |   |-- session.model.js
 |   |-- social-provider.model.js
@@ -39,6 +40,19 @@ copy .env.example .env
 
 Completa las credenciales de PostgreSQL, JWT y proveedores sociales en `.env`.
 
+Para levantar PostgreSQL con Docker:
+
+```bash
+docker compose up -d postgres
+```
+
+Esto crea el contenedor `trackpill-postgres`, expone PostgreSQL en `localhost:5432`
+y usa estos valores compatibles con `.env.example`:
+
+```text
+DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/trackpill
+```
+
 Para crear las tablas base:
 
 ```bash
@@ -54,10 +68,16 @@ El backend sigue el diagrama base en PostgreSQL:
 - `VerificationCode`
 - `ProviderType`
 - `SocialProvider`
+- `PendingSocialRegistration`
 - `Session`
 
 Los proveedores sociales no se guardan embebidos en `User`; se vinculan mediante
 `SocialProvider` y `ProviderType`.
+`User` incluye `email_verified` y `email_verified_date` para registrar correos
+verificados por proveedores sociales sin crear una credencial de password.
+`PendingSocialRegistration` conserva temporalmente datos verificados por el
+proveedor mientras el usuario completa el registro complementario. Esto cubre
+casos como Apple, donde el correo puede no volver a venir en intentos posteriores.
 
 En SQL se usan nombres plurales para evitar palabras reservadas:
 
@@ -66,6 +86,7 @@ En SQL se usan nombres plurales para evitar palabras reservadas:
 - `verification_codes`
 - `provider_types`
 - `social_providers`
+- `pending_social_registrations`
 - `sessions`
 
 ## Endpoint social auth
@@ -76,7 +97,7 @@ Recibe una credencial de Google, Apple o Facebook, la verifica contra el proveed
 busca si el usuario existe y responde una de estas acciones:
 
 - `login_direct`: la cuenta ya estaba vinculada a ese proveedor.
-- `linked_existing_account`: existe una cuenta con el mismo correo y se vinculo el proveedor.
+- `linked_existing_account`: existe una cuenta con el mismo correo verificado por el proveedor y se vinculo el proveedor.
 - `registration_required`: no existe cuenta y se debe completar el registro complementario.
 
 Ejemplo:
@@ -94,5 +115,30 @@ Ejemplo:
     "familyName": "Lopez"
   },
   "platform": "ios"
+}
+```
+
+## Endpoint registro social complementario
+
+`POST /auth/social-register`
+
+Recibe el `registrationToken` devuelto por `/auth/social` y los campos faltantes
+del usuario. Si el correo ya existe y fue verificado por el proveedor, vincula la
+cuenta existente; si no existe, crea el usuario, vincula el proveedor y devuelve
+un token de autenticacion.
+
+Ejemplo:
+
+```json
+{
+  "provider": "google",
+  "registrationToken": "social-registration-token",
+  "user": {
+    "firstName": "Kevin",
+    "lastName": "Lopez",
+    "dateOfBirth": "2000-01-20",
+    "gender": "male",
+    "phone": "+502 0000 0000"
+  }
 }
 ```

@@ -13,6 +13,20 @@ async function socialAuth(req, res, next) {
   }
 }
 
+async function socialRegister(req, res, next) {
+  try {
+    const result = await authService.completeSocialRegistration(req.body);
+
+    res.status(201).json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   socialAuth,
+  socialRegister,
 };

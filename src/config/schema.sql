@@ -6,10 +6,18 @@ CREATE TABLE IF NOT EXISTS users (
   creation_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   active BOOLEAN NOT NULL DEFAULT TRUE,
   last_update TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+  email_verified_date TIMESTAMPTZ,
   phone VARCHAR(40),
   birth_date DATE,
   gender VARCHAR(40)
 );
+
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE;
+
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS email_verified_date TIMESTAMPTZ;
 
 CREATE TABLE IF NOT EXISTS provider_types (
   id BIGSERIAL PRIMARY KEY,
@@ -32,6 +40,29 @@ CREATE TABLE IF NOT EXISTS social_providers (
 
 CREATE INDEX IF NOT EXISTS social_providers_user_provider_idx
   ON social_providers (user_id, provider_type_id);
+
+CREATE TABLE IF NOT EXISTS pending_social_registrations (
+  id BIGSERIAL PRIMARY KEY,
+  provider_type_id BIGINT NOT NULL REFERENCES provider_types(id),
+  external_provider_id VARCHAR(255) NOT NULL,
+  provider_email VARCHAR(255),
+  provider_name VARCHAR(255),
+  given_name VARCHAR(120),
+  family_name VARCHAR(120),
+  profile_picture TEXT,
+  is_private_email BOOLEAN NOT NULL DEFAULT FALSE,
+  email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+  registration_token TEXT NOT NULL UNIQUE,
+  used BOOLEAN NOT NULL DEFAULT FALSE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  creation_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_update TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT pending_social_registrations_provider_external_uk
+    UNIQUE (provider_type_id, external_provider_id)
+);
+
+CREATE INDEX IF NOT EXISTS pending_social_registrations_active_idx
+  ON pending_social_registrations (provider_type_id, external_provider_id, used, expires_at);
 
 CREATE TABLE IF NOT EXISTS sessions (
   id BIGSERIAL PRIMARY KEY,

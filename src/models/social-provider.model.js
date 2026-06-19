@@ -15,7 +15,7 @@ function mapSocialProvider(row) {
     providerEmail: row.provider_email,
     providerName: row.provider_name,
     providerTypeId: row.provider_type_id,
-    user: row.user_id ? mapUser(row) : null,
+    user: row.email ? mapUser({ ...row, id: row.user_id }) : null,
     userId: row.user_id,
   };
 }
@@ -31,6 +31,8 @@ async function findByProviderAndExternalId(providerTypeId, externalProviderId, c
         u.creation_date,
         u.active,
         u.last_update,
+        u.email_verified,
+        u.email_verified_date,
         u.phone,
         u.birth_date,
         u.gender

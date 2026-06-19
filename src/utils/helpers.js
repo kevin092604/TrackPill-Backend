@@ -62,11 +62,59 @@ function signSocialRegistrationToken(payload) {
   );
 }
 
+function getJwtExpirationDate(token) {
+  const decoded = jwt.decode(token);
+
+  return decoded?.exp ? new Date(decoded.exp * 1000) : null;
+}
+
+function verifySocialRegistrationToken(token) {
+  if (!token) {
+    throw createHttpError(400, 'Token de registro social requerido.', 'missing_social_registration_token');
+  }
+
+  const secret = process.env.SOCIAL_REGISTRATION_SECRET || getRequiredEnv('JWT_SECRET');
+
+  try {
+    const decoded = jwt.verify(token, secret);
+
+    if (decoded?.type !== 'social_registration') {
+      throw createHttpError(
+        401,
+        'Token de registro social invalido.',
+        'invalid_social_registration_token',
+      );
+    }
+
+    return decoded;
+  } catch (error) {
+    if (error.statusCode) {
+      throw error;
+    }
+
+    if (error.name === 'TokenExpiredError') {
+      throw createHttpError(
+        401,
+        'El registro social expiro. Inicia sesion nuevamente.',
+        'expired_social_registration_token',
+      );
+    }
+
+    throw createHttpError(
+      401,
+      'Token de registro social invalido.',
+      'invalid_social_registration_token',
+    );
+  }
+}
+
 module.exports = {
   createHttpError,
+  getJwtExpirationDate,
   getRequiredEnv,
   normalizeEmail,
   signAuthToken,
   signSocialRegistrationToken,
   splitName,
+  verifySocialRegistrationToken,
 };
