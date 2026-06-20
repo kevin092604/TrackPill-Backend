@@ -267,7 +267,6 @@ function normalizeSocialRegistrationUser(user = {}, pendingRegistration) {
   const providerEmail = normalizeEmail(pendingRegistration.providerEmail);
   const emailVerified = Boolean(
     providerEmail &&
-      pendingRegistration.emailVerified &&
       email === providerEmail,
   );
 

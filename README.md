@@ -118,14 +118,18 @@ Ejemplo:
 }
 ```
 
-## Endpoint registro social complementario
+## Endpoint completar registro social
 
-`POST /auth/social-register`
+`POST /auth/social/complete-register`
 
 Recibe el `registrationToken` devuelto por `/auth/social` y los campos faltantes
 del usuario. Si el correo ya existe y fue verificado por el proveedor, vincula la
 cuenta existente; si no existe, crea el usuario, vincula el proveedor y devuelve
-un token de autenticacion.
+un token de autenticacion. Para cuentas nuevas, el correo recibido del proveedor
+social queda marcado como verificado automaticamente.
+
+`POST /auth/social-register` queda disponible como alias temporal para clientes
+anteriores.
 
 Ejemplo:
 

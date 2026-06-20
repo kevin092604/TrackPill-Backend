@@ -33,6 +33,10 @@ async function socialAuth(req, res, next) {
 }
 
 async function socialRegister(req, res, next) {
+  return socialCompleteRegister(req, res, next);
+}
+
+async function socialCompleteRegister(req, res, next) {
   try {
     const result = await authService.completeSocialRegistration(req.body);
 
@@ -60,6 +64,7 @@ async function appleCallback(req, res, next) {
 
 module.exports = {
   appleCallback,
+  socialCompleteRegister,
   socialAuth,
   socialRegister,
 };
