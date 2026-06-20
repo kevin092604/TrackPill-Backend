@@ -142,3 +142,28 @@ Ejemplo:
   }
 }
 ```
+
+## Callback Apple web
+
+`GET|POST /auth/apple/callback`
+
+Este endpoint recibe el retorno web de Sign in with Apple para Android/Web y
+redirige de vuelta a la app usando el esquema permitido, por ejemplo:
+
+```text
+trackpill://auth/apple
+```
+
+En Apple Developer, el Services ID debe usar como Return URL publica:
+
+```text
+https://tu-api.com/auth/apple/callback
+```
+
+Variables relacionadas:
+
+```env
+APPLE_SERVICE_ID=com.trackpill.app.service
+APPLE_CALLBACK_ALLOWED_SCHEMES=trackpill
+APPLE_CALLBACK_ALLOWED_ORIGINS=https://tu-web.com
+```

@@ -160,6 +160,90 @@ async function completeSocialRegistration(payload) {
   });
 }
 
+function buildAppleCallbackRedirectUrl(payload = {}) {
+  const state = parseAppleCallbackState(payload.state);
+  const appRedirectUri = state.appRedirectUri;
+
+  if (!isAllowedAppleAppRedirectUri(appRedirectUri)) {
+    throw createHttpError(
+      400,
+      'Redirect URI de Apple no permitida.',
+      'invalid_apple_app_redirect_uri',
+    );
+  }
+
+  const redirectUrl = new URL(appRedirectUri);
+
+  if (payload.error) {
+    redirectUrl.searchParams.set('error', payload.error);
+    setOptionalSearchParam(redirectUrl, 'errorDescription', payload.error_description);
+    setOptionalSearchParam(redirectUrl, 'state', payload.state);
+    return redirectUrl.toString();
+  }
+
+  if (!payload.id_token) {
+    throw createHttpError(
+      400,
+      'Apple no devolvio identity token.',
+      'missing_apple_identity_token',
+    );
+  }
+
+  redirectUrl.searchParams.set('identityToken', payload.id_token);
+  setOptionalSearchParam(redirectUrl, 'authorizationCode', payload.code);
+  setOptionalSearchParam(redirectUrl, 'state', payload.state);
+  setOptionalSearchParam(redirectUrl, 'user', payload.user);
+
+  return redirectUrl.toString();
+}
+
+function parseAppleCallbackState(rawState) {
+  if (!rawState) {
+    throw createHttpError(400, 'State de Apple requerido.', 'missing_apple_state');
+  }
+
+  try {
+    const state = JSON.parse(rawState);
+
+    if (!state?.appRedirectUri || state.provider !== 'apple') {
+      throw new Error('Invalid Apple state');
+    }
+
+    return state;
+  } catch (_error) {
+    throw createHttpError(400, 'State de Apple invalido.', 'invalid_apple_state');
+  }
+}
+
+function isAllowedAppleAppRedirectUri(appRedirectUri) {
+  try {
+    const url = new URL(appRedirectUri);
+    const scheme = url.protocol.replace(':', '').toLowerCase();
+    const allowedSchemes = (process.env.APPLE_CALLBACK_ALLOWED_SCHEMES || 'trackpill')
+      .split(',')
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean);
+    const allowedOrigins = (process.env.APPLE_CALLBACK_ALLOWED_ORIGINS || '')
+      .split(',')
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean);
+
+    if (allowedSchemes.includes(scheme)) {
+      return true;
+    }
+
+    return ['http', 'https'].includes(scheme) && allowedOrigins.includes(url.origin.toLowerCase());
+  } catch (_error) {
+    return false;
+  }
+}
+
+function setOptionalSearchParam(url, key, value) {
+  if (value) {
+    url.searchParams.set(key, value);
+  }
+}
+
 function ensureRegistrationTokenMatchesPending(tokenPayload, pendingRegistration) {
   if (
     tokenPayload.provider !== pendingRegistration.provider ||
@@ -413,5 +497,6 @@ function toPublicProfile(profile) {
 
 module.exports = {
   authenticateSocialUser,
+  buildAppleCallbackRedirectUrl,
   completeSocialRegistration,
 };
