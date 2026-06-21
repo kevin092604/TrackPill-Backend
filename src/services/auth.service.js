@@ -1,4 +1,8 @@
 const db = require('../config/db');
+const crypto = require('crypto');
+const bcrypt = require('bcrypt');
+const EmailCredential = require('../models/email-credential.model');
+const Session = require('../models/session.model');
 const PendingSocialRegistration = require('../models/pending-social-registration.model');
 const ProviderType = require('../models/provider-type.model');
 const SocialProvider = require('../models/social-provider.model');
@@ -15,6 +19,77 @@ const {
 } = require('../utils/helpers');
 
 const GENDERS = new Set(['female', 'male', 'other', 'prefer_not_to_say']);
+
+/**
+ * Función que permite iniciar sesión a un usuario con su correo y contraseña.
+ * @author Jesús Zepeda
+ * @version 0.1.0
+ * @since 2026/06/20
+ * @date 2026/06/20
+ * @param {Object} payload - Objeto con el correo y la contraseña del usuario.
+ * @param {string} payload.email - Correo electrónico del usuario.
+ * @param {string} payload.password - Contraseña del usuario.
+ * @param {string} payload.ipAddress - Dirección IP del usuario.
+ * @param {string} payload.userAgent - Agente de usuario del usuario.
+ * @returns {Promise<Object>} - Objeto con el token de acceso, el token de refresco y la información del usuario.
+ */
+async function authenticateWithEmailAndPassword(payload) {
+
+  const email = normalizeEmail(payload?.email);
+  const password = payload?.password;
+
+  if (!email) {
+    throw createHttpError(400, "El correo electrónico es requerido", "missing_email");
+  }
+
+  if (!password) {
+    throw createHttpError(400, "La contraseña es requerida", "missing_password");
+  }
+
+  const user = await User.findByEmail(email);
+
+  if (!user) {
+    throw createHttpError(401, "Correo o contraseña incorrectos", "invalid_credentials");
+  }
+
+  ensureActiveUser(user);
+
+  const credential = await EmailCredential.findByUserId(user.id);
+
+  if (!credential || !credential.hashPassword) {
+    throw createHttpError(401, "Correo o contraseña incorrectos", "invalid_credentials");
+  }
+
+  const isMatch = await bcrypt.compare(password, credential.hashPassword);
+
+  if (!isMatch) {
+    throw createHttpError(401, "Correo o contraseña incorrectos", "invalid_credentials");
+  }
+
+  const accessToken = signAuthToken(user);
+
+  const refreshToken = crypto.randomBytes(40).toString('hex');
+
+  await Session.create(
+    {
+      userId: user.id,
+      refreshToken,
+      ipAddress: payload.ipAddress || null,
+      userAgent: payload.userAgent || null,
+      active: true
+    }
+  );
+
+  const providers = await SocialProvider.findProviderNamesByUserId(user.id);
+
+  return {
+    action: 'login_redirect',
+    status: 'success',
+    token: accessToken,
+    refreshToken,
+    user: toPublicUser(user, providers)
+  };
+}
 
 async function authenticateSocialUser(payload) {
   const provider = socialProviderService.normalizeProvider(payload?.provider);
@@ -496,6 +571,7 @@ function toPublicProfile(profile) {
 
 module.exports = {
   authenticateSocialUser,
+  authenticateWithEmailAndPassword,
   buildAppleCallbackRedirectUrl,
   completeSocialRegistration,
 };
