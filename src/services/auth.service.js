@@ -20,6 +20,28 @@ const {
 
 const GENDERS = new Set(['female', 'male', 'other', 'prefer_not_to_say']);
 
+async function registerWithEmailAndPassword(payload) {
+  //TODO (SCRUM-27): Validar datos del nuevo usuario (Aquí o en un middleware)
+  //TODO (SCRUM-28): Hashear contraseña y crear usuario
+
+  //Retorno de mock temporal para la integración del endpoint de registro (SCRUM-26)
+  return {
+    action: 'registered_email_account',
+    status: 'success',
+    token: 'jwt-token-mock-scrum-26',
+    refreshToken: 'refresk-token-mock-scrum-26',
+    user: {
+      id: 'mock-id-scrum-26',
+      email: payload.email || 'mock@example.com',
+      firstName: payload.firstName || 'Mock',
+      lastName: payload.lastName || 'User',
+      active: true,
+      emailVerified: false,
+      providers: [],
+    },
+  };
+}
+
 /**
  * Función que permite iniciar sesión a un usuario con su correo y contraseña.
  * @author Jesús Zepeda
@@ -574,4 +596,5 @@ module.exports = {
   authenticateWithEmailAndPassword,
   buildAppleCallbackRedirectUrl,
   completeSocialRegistration,
+  registerWithEmailAndPassword,
 };

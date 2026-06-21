@@ -10,6 +10,7 @@ router.post('/social/complete-register', authController.socialCompleteRegister);
 router.post('/social-register', authController.socialRegister);
 router.get('/apple/callback', authController.appleCallback);
 router.post('/apple/callback', authController.appleCallback);
+router.post('/register', authController.registerWithEmailAndPassword);
 router.post('/login',loginLimiter,authController.authenticateWithEmailAndPassword);
 
 module.exports = router;
