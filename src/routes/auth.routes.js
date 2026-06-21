@@ -9,5 +9,6 @@ router.post('/social/complete-register', authController.socialCompleteRegister);
 router.post('/social-register', authController.socialRegister);
 router.get('/apple/callback', authController.appleCallback);
 router.post('/apple/callback', authController.appleCallback);
+router.post('/login',authController.authenticateWithEmailAndPassword);
 
 module.exports = router;
