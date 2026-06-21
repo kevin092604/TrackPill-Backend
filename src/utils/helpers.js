@@ -35,18 +35,38 @@ function splitName(name) {
   };
 }
 
-function signAuthToken(user) {
+/**
+ * Genera y firma el token de autenticación (JWT)
+ * @author Kevin García, Jesús Zepeda
+ * @version 0.2.0
+ * @since 2026/06/19
+ * @date 2026/06/21
+ * @param {Object} user Objeto que contiene los datos del usuario
+ * @param {number} user.id ID del usuario
+ * @param {string} user.email Email del usuario
+ * @param {number} sessionId ID de la sesión
+ * @returns {string} El token de autenticación generado
+ */
+function signAuthToken(user, sessionId) {
   const secret = getRequiredEnv('JWT_SECRET');
 
-  return jwt.sign(
-    {
-      email: user.email,
-      sub: String(user.id),
-      type: 'auth',
-    },
-    secret,
-    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' },
-  );
+  const payload = {
+    email: user.email,
+    sub: String(user.id),
+    type: 'auth'
+  };
+
+  if (sessionId) {
+    payload.sid = String(sessionId);
+  }
+
+  const options = {};
+
+  if (!sessionId) {
+    options.expiresIn = getRequiredEnv('JWT_EXPIRES_IN') || '7d';
+  }
+
+  return jwt.sign(payload, secret, options);
 }
 
 function signSocialRegistrationToken(payload) {

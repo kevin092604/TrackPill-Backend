@@ -23,9 +23,9 @@ const GENDERS = new Set(['female', 'male', 'other', 'prefer_not_to_say']);
 /**
  * Función que permite iniciar sesión a un usuario con su correo y contraseña.
  * @author Jesús Zepeda
- * @version 0.1.0
+ * @version 0.2.0
  * @since 2026/06/20
- * @date 2026/06/20
+ * @date 2026/06/21
  * @param {Object} payload - Objeto con el correo y la contraseña del usuario.
  * @param {string} payload.email - Correo electrónico del usuario.
  * @param {string} payload.password - Contraseña del usuario.
@@ -66,11 +66,9 @@ async function authenticateWithEmailAndPassword(payload) {
     throw createHttpError(401, "Correo o contraseña incorrectos", "invalid_credentials");
   }
 
-  const accessToken = signAuthToken(user);
-
   const refreshToken = crypto.randomBytes(40).toString('hex');
-
-  await Session.create(
+  
+  const session = await Session.create(
     {
       userId: user.id,
       refreshToken,
@@ -79,6 +77,8 @@ async function authenticateWithEmailAndPassword(payload) {
       active: true
     }
   );
+  
+  const accessToken = signAuthToken(user, session.id);
 
   const providers = await SocialProvider.findProviderNamesByUserId(user.id);
 
