@@ -8,6 +8,7 @@ const ProviderType = require('../models/provider-type.model');
 const SocialProvider = require('../models/social-provider.model');
 const User = require('../models/user.model');
 const socialProviderService = require('./social-provider.service');
+const { validateRegistrationData } = require('../utils/validator');
 const {
   createHttpError,
   getJwtExpirationDate,
@@ -20,26 +21,28 @@ const {
 
 const GENDERS = new Set(['female', 'male', 'other', 'prefer_not_to_say']);
 
+/**
+ * Registra un nuevo usuario con correo y contraseña.
+ * @author Jesús Zepeda,agblandin@unah.hn
+ * @version 0.1.0
+ * @date 2026/06/21
+ * @since 2026/06/21
+ */
 async function registerWithEmailAndPassword(payload) {
-  //TODO (SCRUM-27): Validar datos del nuevo usuario (Aquí o en un middleware)
-  //TODO (SCRUM-28): Hashear contraseña y crear usuario
 
-  //Retorno de mock temporal para la integración del endpoint de registro (SCRUM-26)
-  return {
-    action: 'registered_email_account',
-    status: 'success',
-    token: 'jwt-token-mock-scrum-26',
-    refreshToken: 'refresk-token-mock-scrum-26',
-    user: {
-      id: 'mock-id-scrum-26',
-      email: payload.email || 'mock@example.com',
-      firstName: payload.firstName || 'Mock',
-      lastName: payload.lastName || 'User',
-      active: true,
-      emailVerified: false,
-      providers: [],
-    },
-  };
+  const validData = validateRegistrationData(payload);
+  const { email, password, firstName, lastName, birthDate, gender, phone } = validData;
+
+  const existingUserByEmail = await User.findByEmail(email);
+  if (existingUserByEmail) {
+    throw createHttpError(409, 'El correo ingresado ya esta registrado. Inicia sesion.', 'email_already_registered');
+  }
+
+  const existingUserByPhone = await User.findByPhone(phone);
+  if (existingUserByPhone) {
+    throw createHttpError(409, 'El numero de telefono ya esta registrado en otra cuenta.', 'phone_already_registered');
+  }
+
 }
 
 /**

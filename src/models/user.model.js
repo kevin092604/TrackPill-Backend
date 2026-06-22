@@ -30,6 +30,21 @@ async function findByEmail(email, client = db) {
   return mapUser(result.rows[0]);
 }
 
+/**
+ * Busca un usuario por su número de teléfono
+ * @author agblandin@unah.hn
+ * @version 0.1.0
+ * @date 2026/06/21
+ */
+async function findByPhone(phone, client = db) {
+  const result = await client.query(
+    'SELECT * FROM users WHERE phone = $1 LIMIT 1',
+    [phone],
+  );
+
+  return mapUser(result.rows[0]);
+}
+
 async function findById(id, client = db) {
   const result = await client.query(
     'SELECT * FROM users WHERE id = $1 LIMIT 1',
@@ -78,4 +93,6 @@ module.exports = {
   findByEmail,
   findById,
   mapUser,
+  findByPhone
 };
+
