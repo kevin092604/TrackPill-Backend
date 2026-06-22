@@ -43,6 +43,36 @@ async function registerWithEmailAndPassword(payload) {
     throw createHttpError(409, 'El numero de telefono ya esta registrado en otra cuenta.', 'phone_already_registered');
   }
 
+  const saltRounds = 10;
+  const hashPassword = await bcrypt.hash(password, saltRounds);
+
+  return db.transaction(async (client) => {
+    
+    const user = await User.create({email,firstName,lastName,birthDate,gender,phone,emailVerified: false}, client);
+
+    await EmailCredential.create({
+      userId: user.id,hashPassword
+    }, client);
+
+    const refreshToken = crypto.randomBytes(40).toString('hex');
+    const session = await Session.create({
+      userId: user.id,
+      refreshToken,
+      ipAddress: payload.ipAddress || null,
+      userAgent: payload.userAgent || null,
+      active: true
+    }, client);
+
+    const accessToken = signAuthToken(user, session.id);
+
+    return {
+      action: 'registered_email_account',
+      status: 'success',
+      token: accessToken,       
+      refreshToken: refreshToken,
+      user: toPublicUser(user, []) 
+    };
+  });
 }
 
 /**
