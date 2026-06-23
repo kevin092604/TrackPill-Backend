@@ -225,6 +225,8 @@ async function authenticateWithEmailAndPassword(payload) {
 
   const refreshToken = crypto.randomBytes(40).toString('hex');
   
+  await Session.invalidateAllByUserId(user.id);
+  
   const session = await Session.create(
     {
       userId: user.id,

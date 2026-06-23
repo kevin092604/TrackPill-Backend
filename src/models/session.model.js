@@ -55,8 +55,26 @@ async function findById(id, client = db) {
   return mapSession(result.rows[0]);
 }
 
+/**
+ * Invalida todas las sesiones activas previas de un usuario.
+ * @author agblandin@unah.hn
+ * @since 2026/06/23
+ */
+async function invalidateAllByUserId(userId, client = db) {
+  await client.query(
+    `
+      UPDATE sessions 
+      SET active = false 
+      WHERE user_id = $1 AND active = true
+    `,
+    [userId]
+  );
+}
+
+
 module.exports = {
   create,
   findById,
   mapSession,
+  invalidateAllByUserId
 };
