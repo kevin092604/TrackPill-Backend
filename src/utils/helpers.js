@@ -128,6 +128,16 @@ function verifySocialRegistrationToken(token) {
   }
 }
 
+/**
+ * Verifica si la cuenta de un usuario se encuentra activa en el sistema.
+ * @author agblandin@unah.hn
+ * @since 2026/06/23
+ */
+function ensureActiveUser(user) {
+  if (!user || user.active === false) {
+    throw createHttpError(403, "La cuenta de usuario está desactivada", "user_inactive");
+  }
+}
 module.exports = {
   createHttpError,
   getJwtExpirationDate,

@@ -21,11 +21,12 @@ const {
 const GENDERS = new Set(['female', 'male', 'other', 'prefer_not_to_say']);
 
 /**
- * Función que permite iniciar sesión a un usuario con su correo y contraseña.
- * @author Jesús Zepeda
- * @version 0.2.0
+ * Función que permite iniciar sesión a un usuario con su correo y contraseña,
+ * incluyendo protección contra ataques de fuerza bruta.
+ * @author Jesús Zepeda, agblandin@unah.hn
+ * @version 0.3.0
  * @since 2026/06/20
- * @date 2026/06/21
+ * @date 2026/06/23
  * @param {Object} payload - Objeto con el correo y la contraseña del usuario.
  * @param {string} payload.email - Correo electrónico del usuario.
  * @param {string} payload.password - Contraseña del usuario.
@@ -60,11 +61,23 @@ async function authenticateWithEmailAndPassword(payload) {
     throw createHttpError(401, "Correo o contraseña incorrectos", "invalid_credentials");
   }
 
+  if (credential.lockedUntil && new Date(credential.lockedUntil) > new Date()) {
+    const minutosRestantes = Math.ceil((new Date(credential.lockedUntil) - new Date()) / 1000 / 60);
+    throw createHttpError(
+      403, 
+      `Cuenta bloqueada por seguridad. Intenta de nuevo en ${minutosRestantes} minutos.`, 
+      "account_temporarily_locked"
+    );
+  }
+
   const isMatch = await bcrypt.compare(password, credential.hashPassword);
 
   if (!isMatch) {
+    await EmailCredential.recordFailedAttempt(user.id);
     throw createHttpError(401, "Correo o contraseña incorrectos", "invalid_credentials");
   }
+
+  await EmailCredential.resetAttempts(user.id);
 
   const refreshToken = crypto.randomBytes(40).toString('hex');
   
@@ -79,7 +92,6 @@ async function authenticateWithEmailAndPassword(payload) {
   );
   
   const accessToken = signAuthToken(user, session.id);
-
   const providers = await SocialProvider.findProviderNamesByUserId(user.id);
 
   return {
