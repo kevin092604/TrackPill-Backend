@@ -7,6 +7,8 @@ const PendingSocialRegistration = require('../models/pending-social-registration
 const ProviderType = require('../models/provider-type.model');
 const SocialProvider = require('../models/social-provider.model');
 const User = require('../models/user.model');
+const VerificationCode = require('../models/verification-code.model');
+const emailService = require('./email.service');
 const socialProviderService = require('./social-provider.service');
 const { validateRegistrationData } = require('../utils/validator');
 const {
@@ -20,6 +22,8 @@ const {
 } = require('../utils/helpers');
 
 const GENDERS = new Set(['female', 'male', 'other', 'prefer_not_to_say']);
+const EMAIL_VERIFICATION_TYPE = 'email_verification';
+const EMAIL_VERIFICATION_EXPIRATION_MINUTES = 10;
 
 /**
  * Registra un nuevo usuario con correo y contraseña.
@@ -29,7 +33,6 @@ const GENDERS = new Set(['female', 'male', 'other', 'prefer_not_to_say']);
  * @since 2026/06/21
  */
 async function registerWithEmailAndPassword(payload) {
-
   const validData = validateRegistrationData(payload);
   const { email, password, firstName, lastName, birthDate, gender, phone } = validData;
 
@@ -45,32 +48,127 @@ async function registerWithEmailAndPassword(payload) {
 
   const saltRounds = 10;
   const hashPassword = await bcrypt.hash(password, saltRounds);
+  const verificationCode = generateVerificationCode();
+  const hashVerificationCode = await bcrypt.hash(verificationCode, saltRounds);
+  const expirationDate = new Date(Date.now() + EMAIL_VERIFICATION_EXPIRATION_MINUTES * 60 * 1000);
 
-  return db.transaction(async (client) => {
-    
-    const user = await User.create({email,firstName,lastName,birthDate,gender,phone,emailVerified: false}, client);
+  const result = await db.transaction(async (client) => {
+    const user = await User.create(
+      {
+        birthDate,
+        email,
+        emailVerified: false,
+        firstName,
+        gender,
+        lastName,
+        phone,
+      },
+      client,
+    );
 
     await EmailCredential.create({
-      userId: user.id,hashPassword
-    }, client);
-
-    const refreshToken = crypto.randomBytes(40).toString('hex');
-    const session = await Session.create({
+      hashPassword,
       userId: user.id,
-      refreshToken,
-      ipAddress: payload.ipAddress || null,
-      userAgent: payload.userAgent || null,
-      active: true
     }, client);
 
-    const accessToken = signAuthToken(user, session.id);
+    await VerificationCode.markUnusedAsUsed(user.id, EMAIL_VERIFICATION_TYPE, client);
+    await VerificationCode.create({
+      expirationDate,
+      hashCode: hashVerificationCode,
+      type: EMAIL_VERIFICATION_TYPE,
+      userId: user.id,
+    }, client);
 
     return {
-      action: 'registered_email_account',
+      action: 'email_verification_required',
+      codeExpiresInMinutes: EMAIL_VERIFICATION_EXPIRATION_MINUTES,
+      status: 'pending_email_verification',
+      user: toPublicUser(user, []),
+    };
+  });
+
+  await emailService.sendEmailVerificationCode(email, verificationCode);
+
+  return result;
+}
+
+async function verifyEmail(payload) {
+  const email = normalizeEmail(payload?.email);
+  const code = normalizeVerificationCode(payload?.code || payload?.verificationCode);
+
+  if (!email) {
+    throw createHttpError(400, 'El correo electronico es requerido.', 'missing_email');
+  }
+
+  if (!code) {
+    throw createHttpError(400, 'El codigo de verificacion es requerido.', 'missing_verification_code');
+  }
+
+  const user = await User.findByEmail(email);
+
+  if (!user) {
+    throw createHttpError(404, 'Usuario no encontrado.', 'user_not_found');
+  }
+
+  if (user.emailVerified) {
+    throw createHttpError(409, 'El correo ya fue verificado.', 'email_already_verified');
+  }
+
+  ensureActiveUser(user);
+
+  const verificationCode = await VerificationCode.findLatestByUserAndType(
+    user.id,
+    EMAIL_VERIFICATION_TYPE,
+  );
+
+  if (!verificationCode) {
+    throw createHttpError(404, 'No hay codigo de verificacion activo para este usuario.', 'verification_code_not_found');
+  }
+
+  if (verificationCode.used) {
+    throw createHttpError(409, 'El codigo de verificacion ya fue utilizado.', 'verification_code_used');
+  }
+
+  if (new Date(verificationCode.expirationDate) <= new Date()) {
+    throw createHttpError(410, 'El codigo de verificacion expiro.', 'verification_code_expired');
+  }
+
+  const isCodeValid = await bcrypt.compare(code, verificationCode.hashCode);
+
+  if (!isCodeValid) {
+    throw createHttpError(401, 'Codigo de verificacion incorrecto.', 'invalid_verification_code');
+  }
+
+  return db.transaction(async (client) => {
+    const usedCode = await VerificationCode.markUsed(verificationCode.id, client);
+
+    if (!usedCode) {
+      throw createHttpError(409, 'El codigo de verificacion ya fue utilizado.', 'verification_code_used');
+    }
+
+    const verifiedUser = await User.markEmailVerified(user.id, client);
+
+    await EmailCredential.markVerified(user.id, client);
+
+    const refreshToken = crypto.randomBytes(40).toString('hex');
+    const session = await Session.create(
+      {
+        active: true,
+        ipAddress: payload.ipAddress || null,
+        refreshToken,
+        userAgent: payload.userAgent || null,
+        userId: user.id,
+      },
+      client,
+    );
+    const accessToken = signAuthToken(verifiedUser, session.id);
+
+    return {
+      action: 'email_verified',
+      refreshToken,
       status: 'success',
-      token: accessToken,       
-      refreshToken: refreshToken,
-      user: toPublicUser(user, []) 
+      token: accessToken,
+      user: toPublicUser(verifiedUser, []),
     };
   });
 }
@@ -113,6 +211,10 @@ async function authenticateWithEmailAndPassword(payload) {
 
   if (!credential || !credential.hashPassword) {
     throw createHttpError(401, "Correo o contraseña incorrectos", "invalid_credentials");
+  }
+
+  if (!credential.verified || !user.emailVerified) {
+    throw createHttpError(403, 'Verifica tu correo antes de iniciar sesion.', 'email_not_verified');
   }
 
   const isMatch = await bcrypt.compare(password, credential.hashPassword);
@@ -556,6 +658,16 @@ function ensureActiveUser(user) {
   }
 }
 
+function generateVerificationCode() {
+  return String(crypto.randomInt(100000, 1000000));
+}
+
+function normalizeVerificationCode(code) {
+  const value = String(code || '').replace(/\D/g, '');
+
+  return /^\d{6}$/.test(value) ? value : null;
+}
+
 function buildLoggedInResponse(action, user, providers = []) {
   return {
     action,
@@ -630,4 +742,5 @@ module.exports = {
   buildAppleCallbackRedirectUrl,
   completeSocialRegistration,
   registerWithEmailAndPassword,
+  verifyEmail,
 };

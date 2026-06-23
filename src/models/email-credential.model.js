@@ -26,7 +26,45 @@ async function findByUserId(userId, client = db) {
   return mapEmailCredential(result.rows[0]);
 }
 
+async function create(credential, client = db) {
+  const result = await client.query(
+    `
+      INSERT INTO email_credentials (
+        user_id,
+        hash_password,
+        failed_attempts,
+        change_date,
+        verified,
+        verified_date,
+        locked_until
+      )
+      VALUES ($1, $2, 0, NOW(), FALSE, NULL, NULL)
+      RETURNING *
+    `,
+    [credential.userId, credential.hashPassword],
+  );
+
+  return mapEmailCredential(result.rows[0]);
+}
+
+async function markVerified(userId, client = db) {
+  const result = await client.query(
+    `
+      UPDATE email_credentials
+      SET verified = TRUE,
+          verified_date = COALESCE(verified_date, NOW())
+      WHERE user_id = $1
+      RETURNING *
+    `,
+    [userId],
+  );
+
+  return mapEmailCredential(result.rows[0]);
+}
+
 module.exports = {
+  create,
   findByUserId,
+  markVerified,
   mapEmailCredential,
 };

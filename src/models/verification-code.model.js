@@ -29,7 +29,54 @@ async function create(code, client = db) {
   return mapVerificationCode(result.rows[0]);
 }
 
+async function findLatestByUserAndType(userId, type, client = db) {
+  const result = await client.query(
+    `
+      SELECT *
+      FROM verification_codes
+      WHERE user_id = $1
+        AND type = $2
+      ORDER BY creation_date DESC
+      LIMIT 1
+    `,
+    [userId, type],
+  );
+
+  return mapVerificationCode(result.rows[0]);
+}
+
+async function markUsed(id, client = db) {
+  const result = await client.query(
+    `
+      UPDATE verification_codes
+      SET used = TRUE
+      WHERE id = $1
+        AND used = FALSE
+      RETURNING *
+    `,
+    [id],
+  );
+
+  return mapVerificationCode(result.rows[0]);
+}
+
+async function markUnusedAsUsed(userId, type, client = db) {
+  await client.query(
+    `
+      UPDATE verification_codes
+      SET used = TRUE
+      WHERE user_id = $1
+        AND type = $2
+        AND used = FALSE
+    `,
+    [userId, type],
+  );
+}
+
 module.exports = {
   create,
+  findLatestByUserAndType,
+  markUnusedAsUsed,
+  markUsed,
   mapVerificationCode,
 };

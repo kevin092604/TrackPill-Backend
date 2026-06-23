@@ -54,7 +54,7 @@ async function findById(id, client = db) {
   return mapUser(result.rows[0]);
 }
 
-async function createSocialUser(user, client = db) {
+async function create(user, client = db) {
   const result = await client.query(
     `
       INSERT INTO users (
@@ -88,11 +88,33 @@ async function createSocialUser(user, client = db) {
   return mapUser(result.rows[0]);
 }
 
+async function createSocialUser(user, client = db) {
+  return create(user, client);
+}
+
+async function markEmailVerified(userId, client = db) {
+  const result = await client.query(
+    `
+      UPDATE users
+      SET email_verified = TRUE,
+          email_verified_date = COALESCE(email_verified_date, NOW()),
+          last_update = NOW()
+      WHERE id = $1
+      RETURNING *
+    `,
+    [userId],
+  );
+
+  return mapUser(result.rows[0]);
+}
+
 module.exports = {
+  create,
   createSocialUser,
   findByEmail,
   findById,
+  findByPhone,
+  markEmailVerified,
   mapUser,
-  findByPhone
 };
 

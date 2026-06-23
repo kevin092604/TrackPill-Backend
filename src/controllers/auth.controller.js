@@ -26,6 +26,27 @@ async function registerWithEmailAndPassword(req, res, next) {
   }
 }
 
+async function verifyEmail(req, res, next) {
+  try {
+    const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+
+    const result = await authService.verifyEmail({
+      code: req.body?.code,
+      email: req.body?.email,
+      ipAddress,
+      userAgent,
+    });
+
+    res.status(200).json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 /**
  * Controlador que maneja el inicio de sesión con correo y contraseña
  * @author Jesús Zepeda
@@ -135,4 +156,5 @@ module.exports = {
   socialCompleteRegister,
   socialAuth,
   socialRegister,
+  verifyEmail,
 };

@@ -184,4 +184,53 @@ Recibe las credenciales el correo electrónico y contraseña de un usuario, vali
   "email": "agblandin@unah.com",
   "password": "@#$12Vxeeee"
 }
+```
+
+## Endpoint registro tradicional
+
+`POST /auth/register`
+
+Crea el usuario con correo y contraseña, genera un código de verificación de 6
+dígitos, lo almacena con expiración de 10 minutos y lo envía al correo
+registrado.
+
+```json
+{
+  "email": "usuario@example.com",
+  "password": "@#$12Vxeeee",
+  "firstName": "Kevin",
+  "lastName": "Garcia",
+  "birthDate": "2000-01-20",
+  "gender": "male",
+  "phone": "+50400000000"
+}
+```
+
+## Endpoint verificar correo
+
+`POST /auth/verify-email`
+
+Valida el código de 6 dígitos. Si es correcto, no ha expirado y no fue usado,
+marca el correo como verificado, crea una sesión y retorna token de
+autenticación.
+
+```json
+{
+  "email": "usuario@example.com",
+  "code": "123456"
+}
+```
+
+Respuesta exitosa:
+
+```json
+{
+  "success": true,
+  "action": "email_verified",
+  "status": "success",
+  "token": "jwt",
+  "refreshToken": "token",
+  "user": {}
+}
+```
 
