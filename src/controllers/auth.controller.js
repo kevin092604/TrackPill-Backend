@@ -149,6 +149,31 @@ async function appleCallback(req, res, next) {
   }
 }
 
+/**
+ * Controlador que maneja la verificación del código de recuperación de contraseña
+ * @author Jesús Zepeda
+ * @version 0.1.0
+ * @since 2026/06/22
+ * @date 2026/06/22
+ * @param {Object} req Objeto con la solicitud
+ * @param {Object} res Objeto con la respuesta
+ * @param {Function} next Función para pasar el control a la siguiente función middleware
+ */
+async function verifyRecoveryCode(req, res, next) {
+  try {
+    const result = await authService.verifyRecoveryCode(req.body);
+
+    res.status(200).json(
+      {
+        success: true,
+        ...result,
+      }
+    );
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   authenticateWithEmailAndPassword,
   appleCallback,
@@ -157,4 +182,5 @@ module.exports = {
   socialAuth,
   socialRegister,
   verifyEmail,
+  verifyRecoveryCode,
 };

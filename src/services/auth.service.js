@@ -16,6 +16,7 @@ const {
   getJwtExpirationDate,
   normalizeEmail,
   signAuthToken,
+  signPasswordResetToken,
   signSocialRegistrationToken,
   splitName,
   verifySocialRegistrationToken,
@@ -736,11 +737,72 @@ function toPublicProfile(profile) {
   };
 }
 
+/**
+ * Función que verifica el código de recuperación de contraseña.
+ * @author Jesús Zepeda
+ * @version 0.1.0
+ * @since 2026/06/22
+ * @date 2026/06/22
+ * @param {object} payload Objeto que contiene el correo electrónico y el código de verificación
+ * @returns {object} Objeto que contiene el token de restablecimiento de contraseña
+ */
+async function verifyRecoveryCode(payload) {
+  const email = normalizeEmail(payload?.email);
+
+  const code = normalizeVerificationCode(payload?.code || payload?.verificationCode);
+
+  if (!email) {
+    throw createHttpError(400, 'El correo electrónico es requerido.', 'missing_email');
+  }
+
+  if (!code) {
+    throw createHttpError(400, 'El código de verificación es requerido.', 'missing_code');
+  }
+
+  const user = await User.findByEmail(email);
+  if (!user) {
+    throw createHttpError(404, 'Usuario no encontrado.', 'user_not_found');
+  }
+
+  ensureActiveUser(user);
+
+  const verificationCode = await VerificationCode.findLatestByUserAndType(user.id, 'forgotten_password');
+
+  if (!verificationCode) {
+    throw createHttpError(404, 'No hay código de verificación activo para este usuario.', 'verification_code_not_found');
+  }
+
+  if (verificationCode.used) {
+    throw createHttpError(409, 'El código de verificación ya fue utilizado.', 'verification_code_used');
+  }
+
+  if (new Date(verificationCode.expirationDate) <= new Date()) {
+    throw createHttpError(410, 'El código de verificación expiró.', 'verification_code_expired');
+  }
+
+  const isCodeValid = await bcrypt.compare(code, verificationCode.hashCode);
+
+  if (!isCodeValid) {
+    throw createHttpError(401, 'Código de verificación incorrecto.', 'invalid_verification_code');
+  }
+
+  await VerificationCode.markUsed(verificationCode.id);
+
+  const resetToken = signPasswordResetToken(user);
+
+  return {
+    action: 'password_reset_allowed',
+    status: 'success',
+    resetToken,
+  };
+}
+
 module.exports = {
   authenticateSocialUser,
   authenticateWithEmailAndPassword,
   buildAppleCallbackRedirectUrl,
   completeSocialRegistration,
   registerWithEmailAndPassword,
+  verifyRecoveryCode,
   verifyEmail,
 };

@@ -12,6 +12,7 @@ router.get('/apple/callback', authController.appleCallback);
 router.post('/apple/callback', authController.appleCallback);
 router.post('/register', authController.registerWithEmailAndPassword);
 router.post('/verify-email', authController.verifyEmail);
-router.post('/login',loginLimiter,authController.authenticateWithEmailAndPassword);
+router.post('/verify-code', authController.verifyRecoveryCode);
+router.post('/login', loginLimiter, authController.authenticateWithEmailAndPassword);
 
 module.exports = router;
