@@ -20,6 +20,7 @@ const {
   signSocialRegistrationToken,
   splitName,
   verifySocialRegistrationToken,
+  verifyPasswordResetToken,
 } = require('../utils/helpers');
 
 const GENDERS = new Set(['female', 'male', 'other', 'prefer_not_to_say']);
@@ -797,12 +798,47 @@ async function verifyRecoveryCode(payload) {
   };
 }
 
+/**
+ * Función que restablece la contraseña de un usuario validando el token de recuperación.
+ * @author Jesús Zepeda
+ * @version 0.1.0
+ * @since 2026/06/23
+ * @date 2026/06/23
+ * @param {object} payload Objeto que contiene el token de recuperación y la nueva contraseña
+ * @returns {object} Objeto que indica que la contraseña fue restablecida exitosamente
+ */
+async function resetPassword(payload) {
+  const resetToken = payload?.resetToken;
+  const password = payload?.password;
+
+  if (!resetToken) {
+    throw createHttpError(400, 'El token de recuperación de contraseña es requerido.', 'missing_reset_token');
+  }
+
+  if (!password) {
+    throw createHttpError(400, 'La nueva contraseña es requerida.', 'missing_new_password');
+  }
+
+  const decoded = verifyPasswordResetToken(resetToken);
+
+  const saltRounds = 10;
+  const hashPassword = await bcrypt.hash(password, saltRounds);
+
+  await EmailCredential.updatePassword(decoded.sub, hashPassword);
+
+  return {
+    action: 'password_reset',
+    status: 'success',
+  };
+}
+
 module.exports = {
   authenticateSocialUser,
   authenticateWithEmailAndPassword,
   buildAppleCallbackRedirectUrl,
   completeSocialRegistration,
   registerWithEmailAndPassword,
+  resetPassword,
   verifyRecoveryCode,
   verifyEmail,
 };

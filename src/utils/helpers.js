@@ -153,6 +153,42 @@ function signPasswordResetToken(user) {
     { expiresIn }
   );
 }
+/**
+ * Función que verifica y decodifica el token de recuperación de contraseña.
+ * @author Jesús Zepeda
+ * @version 0.1.0
+ * @since 2026/06/23
+ * @date 2026/06/23
+ * @param {string} token Token de recuperación de contraseña
+ * @returns {object} El payload del token decodificado
+ */
+function verifyPasswordResetToken(token) {
+  if (!token) {
+    throw createHttpError(400, 'Token de recuperación de contraseña requerido.', 'missing_reset_token');
+  }
+
+  const secret = getRequiredEnv('JWT_SECRET');
+
+  try {
+    const decoded = jwt.verify(token, secret);
+
+    if (decoded?.type !== 'password_reset') {
+      throw createHttpError(401, 'Token de recuperación de contraseña inválido.', 'invalid_reset_token');
+    }
+
+    return decoded;
+  } catch (error) {
+    if (error.statusCode) {
+      throw error;
+    }
+
+    if (error.name === 'TokenExpiredError') {
+      throw createHttpError(401, 'El token de recuperación de contraseña expiró.', 'expired_reset_token');
+    }
+
+    throw createHttpError(401, 'Token de restablecimiento inválido.', 'invalid_reset_token');
+  }
+}
 
 module.exports = {
   createHttpError,
@@ -164,4 +200,5 @@ module.exports = {
   signSocialRegistrationToken,
   splitName,
   verifySocialRegistrationToken,
+  verifyPasswordResetToken,
 };

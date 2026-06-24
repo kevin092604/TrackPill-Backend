@@ -62,9 +62,38 @@ async function markVerified(userId, client = db) {
   return mapEmailCredential(result.rows[0]);
 }
 
+/**
+ * Función que actualiza la contraseña de un usuario e inicializa el estado de intentos de login.
+ * @author Jesús Zepeda
+ * @version 0.1.0
+ * @since 2026/06/23
+ * @date 2026/06/23
+ * @param {number} userId - ID del usuario
+ * @param {string} hashPassword - Hash bcrypt de la nueva contraseña
+ * @param {object} client - Cliente de la base de datos para transacciones
+ * @returns {Promise<object|null>} Las credenciales actualizadas o null si no se encuentra el usuario
+ */
+async function updatePassword(userId, hashPassword, client = db) {
+  const result = await client.query(
+    `
+      UPDATE email_credentials
+      SET hash_password = $2,
+          change_date = NOW(),
+          failed_attempts = 0,
+          locked_until = NULL
+      WHERE user_id = $1
+      RETURNING *
+    `,
+    [userId, hashPassword],
+  );
+
+  return mapEmailCredential(result.rows[0]);
+}
+
 module.exports = {
   create,
   findByUserId,
   markVerified,
+  updatePassword,
   mapEmailCredential,
 };

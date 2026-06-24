@@ -174,10 +174,26 @@ async function verifyRecoveryCode(req, res, next) {
   }
 }
 
+async function resetPassword(req, res, next) {
+  try {
+    const result = await authService.resetPassword(req.body);
+
+    res.status(200).json(
+      {
+        success: true,
+        ...result,
+      }
+    );
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   authenticateWithEmailAndPassword,
   appleCallback,
   registerWithEmailAndPassword,
+  resetPassword,
   socialCompleteRegister,
   socialAuth,
   socialRegister,
