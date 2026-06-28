@@ -186,6 +186,51 @@ async function verifyEmail(payload) {
  * @param {string} payload.userAgent - Agente de usuario del usuario.
  * @returns {Promise<Object>} - Objeto con el token de acceso, el token de refresco y la información del usuario.
  */
+async function resendEmailVerification(payload) {
+  const email = normalizeEmail(payload?.email);
+
+  if (!email) {
+    throw createHttpError(400, 'El correo electronico es requerido.', 'missing_email');
+  }
+
+  const user = await User.findByEmail(email);
+
+  if (!user) {
+    throw createHttpError(404, 'Usuario no encontrado.', 'user_not_found');
+  }
+
+  ensureActiveUser(user);
+
+  if (user.emailVerified) {
+    throw createHttpError(409, 'El correo ya fue verificado.', 'email_already_verified');
+  }
+
+  const saltRounds = 10;
+  const verificationCode = generateVerificationCode();
+  const hashVerificationCode = await bcrypt.hash(verificationCode, saltRounds);
+  const expirationDate = new Date(Date.now() + EMAIL_VERIFICATION_EXPIRATION_MINUTES * 60 * 1000);
+
+  const result = await db.transaction(async (client) => {
+    await VerificationCode.markUnusedAsUsed(user.id, EMAIL_VERIFICATION_TYPE, client);
+    await VerificationCode.create({
+      expirationDate,
+      hashCode: hashVerificationCode,
+      type: EMAIL_VERIFICATION_TYPE,
+      userId: user.id,
+    }, client);
+
+    return {
+      action: 'email_verification_code_resent',
+      codeExpiresInMinutes: EMAIL_VERIFICATION_EXPIRATION_MINUTES,
+      status: 'pending_email_verification',
+    };
+  });
+
+  await emailService.sendEmailVerificationCode(email, verificationCode);
+
+  return result;
+}
+
 async function authenticateWithEmailAndPassword(payload) {
 
   const email = normalizeEmail(payload?.email);
@@ -742,5 +787,6 @@ module.exports = {
   buildAppleCallbackRedirectUrl,
   completeSocialRegistration,
   registerWithEmailAndPassword,
+  resendEmailVerification,
   verifyEmail,
 };

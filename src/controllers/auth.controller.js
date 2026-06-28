@@ -57,6 +57,19 @@ async function verifyEmail(req, res, next) {
  * @param {Object} res - Objeto con la respuesta.
  * @param {Function} next - Función para pasar el control a la siguiente función middleware.
  */
+async function resendEmailVerification(req, res, next) {
+  try {
+    const result = await authService.resendEmailVerification(req.body);
+
+    res.status(200).json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function authenticateWithEmailAndPassword(req, res, next) {
 
   try {
@@ -153,6 +166,7 @@ module.exports = {
   authenticateWithEmailAndPassword,
   appleCallback,
   registerWithEmailAndPassword,
+  resendEmailVerification,
   socialCompleteRegister,
   socialAuth,
   socialRegister,
