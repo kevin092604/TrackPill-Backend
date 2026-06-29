@@ -57,6 +57,19 @@ async function verifyEmail(req, res, next) {
  * @param {Object} res - Objeto con la respuesta.
  * @param {Function} next - Función para pasar el control a la siguiente función middleware.
  */
+async function forgotPassword(req, res, next) {
+  try {
+    const result = await authService.forgotPassword(req.body);
+
+    res.status(200).json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function authenticateWithEmailAndPassword(req, res, next) {
 
   try {
@@ -192,6 +205,7 @@ async function resetPassword(req, res, next) {
 module.exports = {
   authenticateWithEmailAndPassword,
   appleCallback,
+  forgotPassword,
   registerWithEmailAndPassword,
   resetPassword,
   socialCompleteRegister,

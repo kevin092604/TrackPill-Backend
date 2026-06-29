@@ -10,7 +10,7 @@ const User = require('../models/user.model');
 const VerificationCode = require('../models/verification-code.model');
 const emailService = require('./email.service');
 const socialProviderService = require('./social-provider.service');
-const { validateRegistrationData } = require('../utils/validator');
+const { validatePassword, validateRegistrationData } = require('../utils/validator');
 const {
   createHttpError,
   getJwtExpirationDate,
@@ -26,6 +26,7 @@ const {
 const GENDERS = new Set(['female', 'male', 'other', 'prefer_not_to_say']);
 const EMAIL_VERIFICATION_TYPE = 'email_verification';
 const EMAIL_VERIFICATION_EXPIRATION_MINUTES = 10;
+const FORGOTTEN_PASSWORD_TYPE = 'forgotten_password';
 
 /**
  * Registra un nuevo usuario con correo y contraseña.
@@ -188,6 +189,54 @@ async function verifyEmail(payload) {
  * @param {string} payload.userAgent - Agente de usuario del usuario.
  * @returns {Promise<Object>} - Objeto con el token de acceso, el token de refresco y la información del usuario.
  */
+async function forgotPassword(payload) {
+  const email = normalizeEmail(payload?.email);
+
+  if (!email) {
+    throw createHttpError(400, 'El correo electronico es requerido.', 'missing_email');
+  }
+
+  const user = await User.findByEmail(email);
+
+  if (!user) {
+    throw createHttpError(404, 'Usuario no encontrado.', 'user_not_found');
+  }
+
+  ensureActiveUser(user);
+
+  const credential = await EmailCredential.findByUserId(user.id);
+
+  if (!credential?.hashPassword) {
+    throw createHttpError(
+      409,
+      'Esta cuenta no tiene una contrasena que pueda recuperarse.',
+      'password_recovery_unavailable',
+    );
+  }
+
+  const verificationCode = generateVerificationCode();
+  const hashVerificationCode = await bcrypt.hash(verificationCode, 10);
+  const expirationDate = new Date(Date.now() + EMAIL_VERIFICATION_EXPIRATION_MINUTES * 60 * 1000);
+
+  await db.transaction(async (client) => {
+    await VerificationCode.markUnusedAsUsed(user.id, FORGOTTEN_PASSWORD_TYPE, client);
+    await VerificationCode.create({
+      expirationDate,
+      hashCode: hashVerificationCode,
+      type: FORGOTTEN_PASSWORD_TYPE,
+      userId: user.id,
+    }, client);
+  });
+
+  await emailService.sendPasswordRecoveryCode(email, verificationCode);
+
+  return {
+    action: 'password_recovery_code_sent',
+    codeExpiresInMinutes: EMAIL_VERIFICATION_EXPIRATION_MINUTES,
+    status: 'pending_password_reset',
+  };
+}
+
 async function authenticateWithEmailAndPassword(payload) {
 
   const email = normalizeEmail(payload?.email);
@@ -819,12 +868,14 @@ async function resetPassword(payload) {
     throw createHttpError(400, 'La nueva contraseña es requerida.', 'missing_new_password');
   }
 
+  const validPassword = validatePassword(password);
   const decoded = verifyPasswordResetToken(resetToken);
+  const hashPassword = await bcrypt.hash(validPassword, 10);
 
-  const saltRounds = 10;
-  const hashPassword = await bcrypt.hash(password, saltRounds);
-
-  await EmailCredential.updatePassword(decoded.sub, hashPassword);
+  await db.transaction(async (client) => {
+    await EmailCredential.updatePassword(decoded.sub, hashPassword, client);
+    await Session.revokeAllByUserId(decoded.sub, client);
+  });
 
   return {
     action: 'password_reset',
@@ -837,6 +888,7 @@ module.exports = {
   authenticateWithEmailAndPassword,
   buildAppleCallbackRedirectUrl,
   completeSocialRegistration,
+  forgotPassword,
   registerWithEmailAndPassword,
   resetPassword,
   verifyRecoveryCode,

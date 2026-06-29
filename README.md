@@ -302,3 +302,42 @@ Respuestas de error comunes:
   "message": "El código de verificación ha expirado."
 }
 ```
+
+## Solicitar recuperacion de contrasena
+
+`POST /auth/forgot-password`
+
+Genera un codigo de 6 digitos, lo almacena como `forgotten_password` con
+expiracion de 10 minutos y lo envia al correo registrado.
+
+```json
+{
+  "email": "usuario@example.com"
+}
+```
+
+## Restablecer contrasena
+
+`POST /auth/reset-password`
+
+Recibe el `resetToken` devuelto por `/auth/verify-code` y la nueva contrasena.
+Valida las reglas de seguridad, actualiza el hash y revoca las sesiones activas.
+
+```json
+{
+  "resetToken": "jwt-temporal",
+  "password": "NuevaClave1!"
+}
+```
+
+## Correo Gmail
+
+Usa una contrasena de aplicacion de Google, no la contrasena normal de la
+cuenta. Configura estas variables:
+
+```env
+SMTP_SERVICE=gmail
+GMAIL_USER=cuenta@gmail.com
+GMAIL_APP_PASSWORD=contrasena_de_aplicacion
+SMTP_FROM=TrackPill <cuenta@gmail.com>
+```

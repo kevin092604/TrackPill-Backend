@@ -76,6 +76,17 @@ function validateRegistrationData(payload) {
   return result.data; 
 }
 
+function validatePassword(password) {
+  const result = validatorPass.safeParse(password);
+
+  if (!result.success) {
+    throw createHttpError(422, result.error.issues[0].message, 'validation_error');
+  }
+
+  return result.data;
+}
+
 module.exports = {
+  validatePassword,
   validateRegistrationData,
 };
