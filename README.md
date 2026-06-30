@@ -316,6 +316,20 @@ expiracion de 10 minutos y lo envia al correo registrado.
 }
 ```
 
+## Endpoint reenviar codigo de verificacion
+
+`POST /auth/resend-email-verification`
+
+Genera un nuevo codigo de 6 digitos para un usuario pendiente de verificacion,
+marca como usados los codigos anteriores y envia el nuevo codigo por correo con
+expiracion de 10 minutos.
+
+```json
+{
+  "email": "usuario@example.com"
+}
+```
+
 ## Restablecer contrasena
 
 `POST /auth/reset-password`

@@ -176,19 +176,6 @@ async function verifyEmail(payload) {
   });
 }
 
-/**
- * Función que permite iniciar sesión a un usuario con su correo y contraseña.
- * @author Jesús Zepeda
- * @version 0.2.0
- * @since 2026/06/20
- * @date 2026/06/21
- * @param {Object} payload - Objeto con el correo y la contraseña del usuario.
- * @param {string} payload.email - Correo electrónico del usuario.
- * @param {string} payload.password - Contraseña del usuario.
- * @param {string} payload.ipAddress - Dirección IP del usuario.
- * @param {string} payload.userAgent - Agente de usuario del usuario.
- * @returns {Promise<Object>} - Objeto con el token de acceso, el token de refresco y la información del usuario.
- */
 async function forgotPassword(payload) {
   const email = normalizeEmail(payload?.email);
 
@@ -203,7 +190,7 @@ async function forgotPassword(payload) {
   }
 
   ensureActiveUser(user);
-
+  
   const credential = await EmailCredential.findByUserId(user.id);
 
   if (!credential?.hashPassword) {
@@ -235,8 +222,66 @@ async function forgotPassword(payload) {
     codeExpiresInMinutes: EMAIL_VERIFICATION_EXPIRATION_MINUTES,
     status: 'pending_password_reset',
   };
+  
+async function resendEmailVerification(payload) {
+  
+  const email = normalizeEmail(payload?.email);
+
+  if (!email) {
+    throw createHttpError(400, 'El correo electronico es requerido.', 'missing_email');
+  }
+
+  const user = await User.findByEmail(email);
+
+  if (!user) {
+    throw createHttpError(404, 'Usuario no encontrado.', 'user_not_found');
+  }
+
+  ensureActiveUser(user);
+  
+  if (user.emailVerified) {
+    throw createHttpError(409, 'El correo ya fue verificado.', 'email_already_verified');
+  }
+
+  const saltRounds = 10;
+  const verificationCode = generateVerificationCode();
+  const hashVerificationCode = await bcrypt.hash(verificationCode, saltRounds);
+  const expirationDate = new Date(Date.now() + EMAIL_VERIFICATION_EXPIRATION_MINUTES * 60 * 1000);
+
+  const result = await db.transaction(async (client) => {
+    await VerificationCode.markUnusedAsUsed(user.id, EMAIL_VERIFICATION_TYPE, client);
+    await VerificationCode.create({
+      expirationDate,
+      hashCode: hashVerificationCode,
+      type: EMAIL_VERIFICATION_TYPE,
+      userId: user.id,
+    }, client);
+
+    return {
+      action: 'email_verification_code_resent',
+      codeExpiresInMinutes: EMAIL_VERIFICATION_EXPIRATION_MINUTES,
+      status: 'pending_email_verification',
+    };
+  });
+
+  await emailService.sendEmailVerificationCode(email, verificationCode);
+
+  return result;
 }
 
+/**
+ * Función que permite iniciar sesión a un usuario con su correo y contraseña.
+ * @author Jesús Zepeda
+ * @version 0.2.0
+ * @since 2026/06/20
+ * @date 2026/06/21
+ * @param {Object} payload - Objeto con el correo y la contraseña del usuario.
+ * @param {string} payload.email - Correo electrónico del usuario.
+ * @param {string} payload.password - Contraseña del usuario.
+ * @param {string} payload.ipAddress - Dirección IP del usuario.
+ * @param {string} payload.userAgent - Agente de usuario del usuario.
+ * @returns {Promise<Object>} - Objeto con el token de acceso, el token de refresco y la información del usuario.
+ */
 async function authenticateWithEmailAndPassword(payload) {
 
   const email = normalizeEmail(payload?.email);
@@ -892,5 +937,6 @@ module.exports = {
   registerWithEmailAndPassword,
   resetPassword,
   verifyRecoveryCode,
+  resendEmailVerification,
   verifyEmail,
 };
