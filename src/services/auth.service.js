@@ -190,7 +190,7 @@ async function forgotPassword(payload) {
   }
 
   ensureActiveUser(user);
-  
+
   const credential = await EmailCredential.findByUserId(user.id);
 
   if (!credential?.hashPassword) {
@@ -222,9 +222,10 @@ async function forgotPassword(payload) {
     codeExpiresInMinutes: EMAIL_VERIFICATION_EXPIRATION_MINUTES,
     status: 'pending_password_reset',
   };
-  
+}
+
 async function resendEmailVerification(payload) {
-  
+
   const email = normalizeEmail(payload?.email);
 
   if (!email) {
@@ -238,7 +239,7 @@ async function resendEmailVerification(payload) {
   }
 
   ensureActiveUser(user);
-  
+
   if (user.emailVerified) {
     throw createHttpError(409, 'El correo ya fue verificado.', 'email_already_verified');
   }
@@ -320,7 +321,7 @@ async function authenticateWithEmailAndPassword(payload) {
   }
 
   const refreshToken = crypto.randomBytes(40).toString('hex');
-  
+
   const session = await Session.create(
     {
       userId: user.id,
@@ -330,7 +331,7 @@ async function authenticateWithEmailAndPassword(payload) {
       active: true
     }
   );
-  
+
   const accessToken = signAuthToken(user, session.id);
 
   const providers = await SocialProvider.findProviderNamesByUserId(user.id);
@@ -595,7 +596,7 @@ function normalizeSocialRegistrationUser(user = {}, pendingRegistration) {
   const providerEmail = normalizeEmail(pendingRegistration.providerEmail);
   const emailVerified = Boolean(
     providerEmail &&
-      email === providerEmail,
+    email === providerEmail,
   );
 
   if (!isValidEmail(email)) {
