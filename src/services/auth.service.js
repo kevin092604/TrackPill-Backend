@@ -10,20 +10,23 @@ const User = require('../models/user.model');
 const VerificationCode = require('../models/verification-code.model');
 const emailService = require('./email.service');
 const socialProviderService = require('./social-provider.service');
-const { validateRegistrationData } = require('../utils/validator');
+const { validatePassword, validateRegistrationData } = require('../utils/validator');
 const {
   createHttpError,
   getJwtExpirationDate,
   normalizeEmail,
   signAuthToken,
+  signPasswordResetToken,
   signSocialRegistrationToken,
   splitName,
   verifySocialRegistrationToken,
+  verifyPasswordResetToken,
 } = require('../utils/helpers');
 
 const GENDERS = new Set(['female', 'male', 'other', 'prefer_not_to_say']);
 const EMAIL_VERIFICATION_TYPE = 'email_verification';
 const EMAIL_VERIFICATION_EXPIRATION_MINUTES = 10;
+const FORGOTTEN_PASSWORD_TYPE = 'forgotten_password';
 
 /**
  * Registra un nuevo usuario con correo y contraseña.
@@ -173,20 +176,7 @@ async function verifyEmail(payload) {
   });
 }
 
-/**
- * Función que permite iniciar sesión a un usuario con su correo y contraseña.
- * @author Jesús Zepeda
- * @version 0.2.0
- * @since 2026/06/20
- * @date 2026/06/21
- * @param {Object} payload - Objeto con el correo y la contraseña del usuario.
- * @param {string} payload.email - Correo electrónico del usuario.
- * @param {string} payload.password - Contraseña del usuario.
- * @param {string} payload.ipAddress - Dirección IP del usuario.
- * @param {string} payload.userAgent - Agente de usuario del usuario.
- * @returns {Promise<Object>} - Objeto con el token de acceso, el token de refresco y la información del usuario.
- */
-async function resendEmailVerification(payload) {
+async function forgotPassword(payload) {
   const email = normalizeEmail(payload?.email);
 
   if (!email) {
@@ -200,7 +190,55 @@ async function resendEmailVerification(payload) {
   }
 
   ensureActiveUser(user);
+  
+  const credential = await EmailCredential.findByUserId(user.id);
 
+  if (!credential?.hashPassword) {
+    throw createHttpError(
+      409,
+      'Esta cuenta no tiene una contrasena que pueda recuperarse.',
+      'password_recovery_unavailable',
+    );
+  }
+
+  const verificationCode = generateVerificationCode();
+  const hashVerificationCode = await bcrypt.hash(verificationCode, 10);
+  const expirationDate = new Date(Date.now() + EMAIL_VERIFICATION_EXPIRATION_MINUTES * 60 * 1000);
+
+  await db.transaction(async (client) => {
+    await VerificationCode.markUnusedAsUsed(user.id, FORGOTTEN_PASSWORD_TYPE, client);
+    await VerificationCode.create({
+      expirationDate,
+      hashCode: hashVerificationCode,
+      type: FORGOTTEN_PASSWORD_TYPE,
+      userId: user.id,
+    }, client);
+  });
+
+  await emailService.sendPasswordRecoveryCode(email, verificationCode);
+
+  return {
+    action: 'password_recovery_code_sent',
+    codeExpiresInMinutes: EMAIL_VERIFICATION_EXPIRATION_MINUTES,
+    status: 'pending_password_reset',
+  };
+  
+async function resendEmailVerification(payload) {
+  
+  const email = normalizeEmail(payload?.email);
+
+  if (!email) {
+    throw createHttpError(400, 'El correo electronico es requerido.', 'missing_email');
+  }
+
+  const user = await User.findByEmail(email);
+
+  if (!user) {
+    throw createHttpError(404, 'Usuario no encontrado.', 'user_not_found');
+  }
+
+  ensureActiveUser(user);
+  
   if (user.emailVerified) {
     throw createHttpError(409, 'El correo ya fue verificado.', 'email_already_verified');
   }
@@ -231,6 +269,19 @@ async function resendEmailVerification(payload) {
   return result;
 }
 
+/**
+ * Función que permite iniciar sesión a un usuario con su correo y contraseña.
+ * @author Jesús Zepeda
+ * @version 0.2.0
+ * @since 2026/06/20
+ * @date 2026/06/21
+ * @param {Object} payload - Objeto con el correo y la contraseña del usuario.
+ * @param {string} payload.email - Correo electrónico del usuario.
+ * @param {string} payload.password - Contraseña del usuario.
+ * @param {string} payload.ipAddress - Dirección IP del usuario.
+ * @param {string} payload.userAgent - Agente de usuario del usuario.
+ * @returns {Promise<Object>} - Objeto con el token de acceso, el token de refresco y la información del usuario.
+ */
 async function authenticateWithEmailAndPassword(payload) {
 
   const email = normalizeEmail(payload?.email);
@@ -781,12 +832,111 @@ function toPublicProfile(profile) {
   };
 }
 
+/**
+ * Función que verifica el código de recuperación de contraseña.
+ * @author Jesús Zepeda
+ * @version 0.1.0
+ * @since 2026/06/22
+ * @date 2026/06/22
+ * @param {object} payload Objeto que contiene el correo electrónico y el código de verificación
+ * @returns {object} Objeto que contiene el token de restablecimiento de contraseña
+ */
+async function verifyRecoveryCode(payload) {
+  const email = normalizeEmail(payload?.email);
+
+  const code = normalizeVerificationCode(payload?.code || payload?.verificationCode);
+
+  if (!email) {
+    throw createHttpError(400, 'El correo electrónico es requerido.', 'missing_email');
+  }
+
+  if (!code) {
+    throw createHttpError(400, 'El código de verificación es requerido.', 'missing_code');
+  }
+
+  const user = await User.findByEmail(email);
+  if (!user) {
+    throw createHttpError(404, 'Usuario no encontrado.', 'user_not_found');
+  }
+
+  ensureActiveUser(user);
+
+  const verificationCode = await VerificationCode.findLatestByUserAndType(user.id, 'forgotten_password');
+
+  if (!verificationCode) {
+    throw createHttpError(404, 'No hay código de verificación activo para este usuario.', 'verification_code_not_found');
+  }
+
+  if (verificationCode.used) {
+    throw createHttpError(409, 'El código de verificación ya fue utilizado.', 'verification_code_used');
+  }
+
+  if (new Date(verificationCode.expirationDate) <= new Date()) {
+    throw createHttpError(410, 'El código de verificación expiró.', 'verification_code_expired');
+  }
+
+  const isCodeValid = await bcrypt.compare(code, verificationCode.hashCode);
+
+  if (!isCodeValid) {
+    throw createHttpError(401, 'Código de verificación incorrecto.', 'invalid_verification_code');
+  }
+
+  await VerificationCode.markUsed(verificationCode.id);
+
+  const resetToken = signPasswordResetToken(user);
+
+  return {
+    action: 'password_reset_allowed',
+    status: 'success',
+    resetToken,
+  };
+}
+
+/**
+ * Función que restablece la contraseña de un usuario validando el token de recuperación.
+ * @author Jesús Zepeda
+ * @version 0.1.0
+ * @since 2026/06/23
+ * @date 2026/06/23
+ * @param {object} payload Objeto que contiene el token de recuperación y la nueva contraseña
+ * @returns {object} Objeto que indica que la contraseña fue restablecida exitosamente
+ */
+async function resetPassword(payload) {
+  const resetToken = payload?.resetToken;
+  const password = payload?.password;
+
+  if (!resetToken) {
+    throw createHttpError(400, 'El token de recuperación de contraseña es requerido.', 'missing_reset_token');
+  }
+
+  if (!password) {
+    throw createHttpError(400, 'La nueva contraseña es requerida.', 'missing_new_password');
+  }
+
+  const validPassword = validatePassword(password);
+  const decoded = verifyPasswordResetToken(resetToken);
+  const hashPassword = await bcrypt.hash(validPassword, 10);
+
+  await db.transaction(async (client) => {
+    await EmailCredential.updatePassword(decoded.sub, hashPassword, client);
+    await Session.revokeAllByUserId(decoded.sub, client);
+  });
+
+  return {
+    action: 'password_reset',
+    status: 'success',
+  };
+}
+
 module.exports = {
   authenticateSocialUser,
   authenticateWithEmailAndPassword,
   buildAppleCallbackRedirectUrl,
   completeSocialRegistration,
+  forgotPassword,
   registerWithEmailAndPassword,
+  resetPassword,
+  verifyRecoveryCode,
   resendEmailVerification,
   verifyEmail,
 };

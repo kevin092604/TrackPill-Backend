@@ -55,8 +55,23 @@ async function findById(id, client = db) {
   return mapSession(result.rows[0]);
 }
 
+async function revokeAllByUserId(userId, client = db) {
+  const result = await client.query(
+    `
+      UPDATE sessions
+      SET active = FALSE
+      WHERE user_id = $1
+        AND active = TRUE
+    `,
+    [userId],
+  );
+
+  return result.rowCount;
+}
+
 module.exports = {
   create,
   findById,
   mapSession,
+  revokeAllByUserId,
 };

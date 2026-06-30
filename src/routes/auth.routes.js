@@ -13,6 +13,9 @@ router.post('/apple/callback', authController.appleCallback);
 router.post('/register', authController.registerWithEmailAndPassword);
 router.post('/resend-email-verification', authController.resendEmailVerification);
 router.post('/verify-email', authController.verifyEmail);
-router.post('/login',loginLimiter,authController.authenticateWithEmailAndPassword);
+router.post('/forgot-password', authController.forgotPassword);
+router.post('/verify-code', authController.verifyRecoveryCode);
+router.post('/reset-password', authController.resetPassword);
+router.post('/login', loginLimiter, authController.authenticateWithEmailAndPassword);
 
 module.exports = router;

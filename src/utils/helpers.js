@@ -128,13 +128,77 @@ function verifySocialRegistrationToken(token) {
   }
 }
 
+/**
+ * Genera y firma el token de recuperación de contraseña.
+ * @author Jesús Zepeda
+ * @version 0.1.0
+ * @since 2026/06/22
+ * @date 2026/06/22
+ * @param {object} user Objeto que contiene los datos del usuario
+ * @param {number} user.id ID del usuario
+ * @param {string} user.email Email del usuario
+ * @returns {string} El token de recuperación de contraseña generado firmado
+ */
+function signPasswordResetToken(user) {
+  const secret = getRequiredEnv('JWT_SECRET');
+  const expiresIn = process.env.PASSWORD_RESET_EXPIRES_IN || '10m';
+
+  return jwt.sign(
+    {
+      email: user.email,
+      sub: String(user.id),
+      type: 'password_reset',
+    },
+    secret,
+    { expiresIn }
+  );
+}
+/**
+ * Función que verifica y decodifica el token de recuperación de contraseña.
+ * @author Jesús Zepeda
+ * @version 0.1.0
+ * @since 2026/06/23
+ * @date 2026/06/23
+ * @param {string} token Token de recuperación de contraseña
+ * @returns {object} El payload del token decodificado
+ */
+function verifyPasswordResetToken(token) {
+  if (!token) {
+    throw createHttpError(400, 'Token de recuperación de contraseña requerido.', 'missing_reset_token');
+  }
+
+  const secret = getRequiredEnv('JWT_SECRET');
+
+  try {
+    const decoded = jwt.verify(token, secret);
+
+    if (decoded?.type !== 'password_reset') {
+      throw createHttpError(401, 'Token de recuperación de contraseña inválido.', 'invalid_reset_token');
+    }
+
+    return decoded;
+  } catch (error) {
+    if (error.statusCode) {
+      throw error;
+    }
+
+    if (error.name === 'TokenExpiredError') {
+      throw createHttpError(401, 'El token de recuperación de contraseña expiró.', 'expired_reset_token');
+    }
+
+    throw createHttpError(401, 'Token de restablecimiento inválido.', 'invalid_reset_token');
+  }
+}
+
 module.exports = {
   createHttpError,
   getJwtExpirationDate,
   getRequiredEnv,
   normalizeEmail,
   signAuthToken,
+  signPasswordResetToken,
   signSocialRegistrationToken,
   splitName,
   verifySocialRegistrationToken,
+  verifyPasswordResetToken,
 };
