@@ -19,7 +19,7 @@ function mapEmailCredential(row) {
 
 async function findByUserId(userId, client = db) {
   const result = await client.query(
-    'SELECT * FROM email_credentials WHERE user_id = $1 LIMIT 1',
+    'SELECT * FROM auth.email_credentials WHERE user_id = $1 LIMIT 1',
     [userId],
   );
 
@@ -29,7 +29,7 @@ async function findByUserId(userId, client = db) {
 async function create(credential, client = db) {
   const result = await client.query(
     `
-      INSERT INTO email_credentials (
+      INSERT INTO auth.email_credentials (
         user_id,
         hash_password,
         failed_attempts,
@@ -50,7 +50,7 @@ async function create(credential, client = db) {
 async function markVerified(userId, client = db) {
   const result = await client.query(
     `
-      UPDATE email_credentials
+      UPDATE auth.email_credentials
       SET verified = TRUE,
           verified_date = COALESCE(verified_date, NOW())
       WHERE user_id = $1
@@ -76,7 +76,7 @@ async function markVerified(userId, client = db) {
 async function updatePassword(userId, hashPassword, client = db) {
   const result = await client.query(
     `
-      UPDATE email_credentials
+      UPDATE auth.email_credentials
       SET hash_password = $2,
           change_date = NOW(),
           failed_attempts = 0,

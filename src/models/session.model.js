@@ -19,7 +19,7 @@ function mapSession(row) {
 async function create(session, client = db) {
   const result = await client.query(
     `
-      INSERT INTO sessions (user_id, refresh_token, ip_address, user_agent, active)
+      INSERT INTO auth.sessions (user_id, refresh_token, ip_address, user_agent, active)
       VALUES ($1, $2, $3, $4, COALESCE($5, TRUE))
       RETURNING *
     `,
@@ -48,7 +48,7 @@ async function create(session, client = db) {
 async function findById(id, client = db) {
 
   const result = await client.query(
-    `SELECT * FROM sessions WHERE id = $1 LIMIT 1`,
+    `SELECT * FROM auth.sessions WHERE id = $1 LIMIT 1`,
     [id]
   );
 
@@ -58,7 +58,7 @@ async function findById(id, client = db) {
 async function revokeAllByUserId(userId, client = db) {
   const result = await client.query(
     `
-      UPDATE sessions
+      UPDATE auth.sessions
       SET active = FALSE
       WHERE user_id = $1
         AND active = TRUE
