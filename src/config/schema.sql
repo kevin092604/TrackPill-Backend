@@ -145,19 +145,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS caregiver_relationships_open_pair_uk
 CREATE INDEX IF NOT EXISTS caregiver_relationships_participants_idx
   ON auth.caregiver_relationships (caregiver_id, patient_id, status);
 
-CREATE TABLE IF NOT EXISTS auth.invitation_tokens (
-  id BIGSERIAL PRIMARY KEY,
-  initiator_id BIGINT NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  token TEXT NOT NULL UNIQUE,
-  initiated_as VARCHAR(20) NOT NULL CHECK (initiated_as IN ('caregiver', 'patient')),
-  expiration_date TIMESTAMPTZ NOT NULL,
-  used BOOLEAN NOT NULL DEFAULT FALSE,
-  creation_date TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS invitation_tokens_active_idx
-  ON auth.invitation_tokens (initiator_id, used, expiration_date);
-
 INSERT INTO auth.provider_types (name)
 VALUES ('google'), ('facebook'), ('apple')
 ON CONFLICT (name) DO NOTHING;
