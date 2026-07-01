@@ -5,7 +5,6 @@ const express = require('express');
 
 const { connectDB } = require('./config/db');
 const authRoutes = require('./routes/auth.routes');
-const relationshipRoutes = require('./routes/relationship.routes');
 
 const app = express();
 
@@ -20,7 +19,6 @@ app.get('/health', (_req, res) => {
 });
 
 app.use('/auth', authRoutes);
-app.use('/relationships', relationshipRoutes);
 
 app.use((req, res) => {
   res.status(404).json({
