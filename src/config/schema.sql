@@ -101,6 +101,50 @@ CREATE TABLE IF NOT EXISTS auth.verification_codes (
 CREATE INDEX IF NOT EXISTS verification_codes_user_type_used_idx
   ON auth.verification_codes (user_id, type, used);
 
+CREATE TABLE IF NOT EXISTS auth.caregiver_relationships (
+  id BIGSERIAL PRIMARY KEY,
+  caregiver_id BIGINT NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  patient_id BIGINT NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  relationship_label VARCHAR(120),
+  initiated_by VARCHAR(20) NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'pendiente',
+  active BOOLEAN NOT NULL DEFAULT FALSE,
+  invitation_channel VARCHAR(20) NOT NULL,
+  invitation_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  response_date TIMESTAMPTZ,
+  last_status_change TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT caregiver_relationships_different_users_check
+    CHECK (caregiver_id <> patient_id),
+  CONSTRAINT caregiver_relationships_initiated_by_check
+    CHECK (initiated_by IN ('caregiver', 'patient')),
+  CONSTRAINT caregiver_relationships_status_check
+    CHECK (status IN ('pendiente', 'aceptada', 'rechazada', 'eliminada')),
+  CONSTRAINT caregiver_relationships_invitation_channel_check
+    CHECK (invitation_channel IN ('busqueda', 'qr', 'enlace'))
+);
+
+ALTER TABLE auth.caregiver_relationships
+  ADD COLUMN IF NOT EXISTS relationship_label VARCHAR(120);
+
+ALTER TABLE auth.caregiver_relationships
+  ADD COLUMN IF NOT EXISTS initiated_by VARCHAR(20);
+
+ALTER TABLE auth.caregiver_relationships
+  ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT FALSE;
+
+ALTER TABLE auth.caregiver_relationships
+  ADD COLUMN IF NOT EXISTS invitation_channel VARCHAR(20);
+
+CREATE UNIQUE INDEX IF NOT EXISTS caregiver_relationships_open_pair_uk
+  ON auth.caregiver_relationships (
+    LEAST(caregiver_id, patient_id),
+    GREATEST(caregiver_id, patient_id)
+  )
+  WHERE status IN ('pendiente', 'aceptada');
+
+CREATE INDEX IF NOT EXISTS caregiver_relationships_participants_idx
+  ON auth.caregiver_relationships (caregiver_id, patient_id, status);
+
 INSERT INTO auth.provider_types (name)
 VALUES ('google'), ('facebook'), ('apple')
 ON CONFLICT (name) DO NOTHING;
