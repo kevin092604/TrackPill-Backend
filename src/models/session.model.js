@@ -35,7 +35,28 @@ async function create(session, client = db) {
   return mapSession(result.rows[0]);
 }
 
+/**
+ * Función que busca una sesión de usuario por su id
+ * @author Jesús Zepeda
+ * @version 0.1.0
+ * @since 2026/06/21
+ * @date 2026/06/21
+ * @param {string} id - El id de la sesión a buscar
+ * @param {Object} [client=db] - Cliente de la base de datos por defecto
+ * @returns {Promise<Object|null>} La sesión encontrada o null si no existe
+ */
+async function findById(id, client = db) {
+
+  const result = await client.query(
+    `SELECT * FROM sessions WHERE id = $1 LIMIT 1`,
+    [id]
+  );
+
+  return mapSession(result.rows[0]);
+}
+
 module.exports = {
   create,
+  findById,
   mapSession,
 };

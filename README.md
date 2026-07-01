@@ -171,3 +171,17 @@ APPLE_SERVICE_ID=com.trackpill.app.service
 APPLE_CALLBACK_ALLOWED_SCHEMES=trackpill
 APPLE_CALLBACK_ALLOWED_ORIGINS=https://tu-web.com
 ```
+## Endpoint login tradicional
+
+`POST /auth/login`
+
+Recibe las credenciales el correo electrónico y contraseña de un usuario, valida su identidad contra los registros de la base de datos y genera una nueva sesión, retornando los tokens de acceso correspondientes.
+
+### Ejemplo de petición
+
+```json
+{
+  "email": "agblandin@unah.com",
+  "password": "@#$12Vxeeee"
+}
+
