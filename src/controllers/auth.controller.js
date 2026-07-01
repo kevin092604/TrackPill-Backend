@@ -215,10 +215,24 @@ async function resetPassword(req, res, next) {
   }
 }
 
+async function logout(req, res, next) {
+  try {
+    const result = await authService.logout(req.sessionId, req.user.id);
+
+    res.status(200).json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   authenticateWithEmailAndPassword,
   appleCallback,
   forgotPassword,
+  logout,
   registerWithEmailAndPassword,
   resetPassword,
   resendEmailVerification,

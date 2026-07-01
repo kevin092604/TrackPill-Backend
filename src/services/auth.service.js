@@ -977,12 +977,34 @@ async function resetPassword(payload) {
   };
 }
 
+async function logout(sessionId, userId) {
+  if (!sessionId) {
+    throw createHttpError(
+      401,
+      'El token no esta asociado a una sesion activa.',
+      'missing_token_session',
+    );
+  }
+
+  const revokedSession = await Session.revokeById(sessionId, userId);
+
+  if (!revokedSession) {
+    throw createHttpError(401, 'Sesion expirada o revocada.', 'revoked_session');
+  }
+
+  return {
+    action: 'logout',
+    status: 'success',
+  };
+}
+
 module.exports = {
   authenticateSocialUser,
   authenticateWithEmailAndPassword,
   buildAppleCallbackRedirectUrl,
   completeSocialRegistration,
   forgotPassword,
+  logout,
   registerWithEmailAndPassword,
   resetPassword,
   verifyRecoveryCode,
