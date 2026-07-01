@@ -136,11 +136,31 @@ async function findTargetUser(payload) {
     return User.findByEmail(email);
   }
 
+  const phone = normalizePhone(payload?.targetPhone || payload?.phone);
+  if (phone) {
+    return User.findByPhone(phone);
+  }
+
+  const query = String(payload?.targetQuery || payload?.query || '').trim();
+  if (query) {
+    if (query.includes('@')) return User.findByEmail(normalizeEmail(query));
+    if (/^\+?[\d\s()-]{7,20}$/.test(query)) return User.findByPhone(normalizePhone(query));
+    if (/^\d+$/.test(query)) return User.findById(normalizeId(query, 'target_user_id'));
+    throw createHttpError(422, 'Busca por correo, telefono o ID de usuario.', 'invalid_relationship_target');
+  }
+
   throw createHttpError(
     400,
-    'Indica targetUserId o targetEmail para buscar al usuario.',
+    'Indica ID, correo o telefono.',
     'missing_relationship_target',
   );
+}
+
+function normalizePhone(value) {
+  if (!value) return null;
+  const phone = String(value).trim().replace(/[\s()-]/g, '');
+  if (!/^\+?\d{7,15}$/.test(phone)) throw createHttpError(422, 'Telefono invalido.', 'invalid_target_phone');
+  return phone;
 }
 
 function buildParticipants(initiatorId, recipientId, initiatedBy) {

@@ -21,6 +21,8 @@ ALTER TABLE auth.users
 ALTER TABLE auth.users
   ADD COLUMN IF NOT EXISTS email_verified_date TIMESTAMPTZ;
 
+CREATE INDEX IF NOT EXISTS users_phone_idx ON auth.users (phone);
+
 CREATE TABLE IF NOT EXISTS auth.provider_types (
   id BIGSERIAL PRIMARY KEY,
   name VARCHAR(40) NOT NULL UNIQUE,
