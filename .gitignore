@@ -1,1 +1,12 @@
 node_modules/
+.env
+.env.*
+!.env.example
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+dist/
+build/
+coverage/
+.DS_Store
+Thumbs.db
