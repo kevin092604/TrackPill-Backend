@@ -349,6 +349,8 @@ async function authenticateWithEmailAndPassword(payload) {
 
   const refreshToken = crypto.randomBytes(40).toString('hex');
 
+  await Session.revokeAllByUserId(user.id);
+
   const session = await Session.create(
     {
       userId: user.id,
@@ -797,6 +799,9 @@ function normalizeVerificationCode(code) {
 
 async function buildLoggedInResponse(action, user, providers = [], client = db) {
   const refreshToken = crypto.randomBytes(40).toString('hex');
+
+  await Session.revokeAllByUserId(user.id, client);
+
   const session = await Session.create(
     {
       active: true,
@@ -972,12 +977,34 @@ async function resetPassword(payload) {
   };
 }
 
+async function logout(sessionId, userId) {
+  if (!sessionId) {
+    throw createHttpError(
+      401,
+      'El token no esta asociado a una sesion activa.',
+      'missing_token_session',
+    );
+  }
+
+  const revokedSession = await Session.revokeById(sessionId, userId);
+
+  if (!revokedSession) {
+    throw createHttpError(401, 'Sesion expirada o revocada.', 'revoked_session');
+  }
+
+  return {
+    action: 'logout',
+    status: 'success',
+  };
+}
+
 module.exports = {
   authenticateSocialUser,
   authenticateWithEmailAndPassword,
   buildAppleCallbackRedirectUrl,
   completeSocialRegistration,
   forgotPassword,
+  logout,
   registerWithEmailAndPassword,
   resetPassword,
   verifyRecoveryCode,

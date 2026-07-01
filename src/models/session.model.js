@@ -55,6 +55,22 @@ async function findById(id, client = db) {
   return mapSession(result.rows[0]);
 }
 
+async function revokeById(id, userId, client = db) {
+  const result = await client.query(
+    `
+      UPDATE auth.sessions
+      SET active = FALSE
+      WHERE id = $1
+        AND user_id = $2
+        AND active = TRUE
+      RETURNING *
+    `,
+    [id, userId],
+  );
+
+  return mapSession(result.rows[0]);
+}
+
 async function revokeAllByUserId(userId, client = db) {
   const result = await client.query(
     `
@@ -74,4 +90,5 @@ module.exports = {
   findById,
   mapSession,
   revokeAllByUserId,
+  revokeById,
 };
