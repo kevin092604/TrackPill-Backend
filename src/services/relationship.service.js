@@ -5,10 +5,8 @@ const CaregiverRelationship = require('../models/caregiver-relationship.model');
 const InvitationToken = require('../models/invitation-token.model');
 const User = require('../models/user.model');
 const { createHttpError, normalizeEmail } = require('../utils/helpers');
-const emailService = require('./email.service');
 
 const INITIATOR_ROLES = new Set(['caregiver', 'patient']);
-const RESPONSE_STATUSES = new Set(['aceptada', 'rechazada']);
 
 async function requestRelationship(payload, currentUser) {
   const initiatedBy = normalizeInitiatorRole(payload?.initiatedAs || payload?.initiatedBy);
@@ -66,37 +64,6 @@ async function redeemInvitationToken(payload, currentUser) {
     }
     return { action: 'invitation_token_redeemed', relationship, status: 'success' };
   });
-}
-
-async function respondToRelationship(relationshipId, payload, currentUser) {
-  const id = normalizeId(relationshipId, 'relationship_id');
-  const responseStatus = normalizeResponseStatus(payload?.status || payload?.response);
-  const relationship = await CaregiverRelationship.findById(id);
-  if (!relationship) throw createHttpError(404, 'Solicitud de relacion no encontrada.', 'relationship_not_found');
-  if (relationship.status !== 'pendiente') throw createHttpError(409, 'La solicitud de relacion ya fue respondida.', 'relationship_already_responded');
-
-  const initiatorId = relationship.initiatedBy === 'caregiver' ? relationship.caregiverId : relationship.patientId;
-  const responderId = relationship.initiatedBy === 'caregiver' ? relationship.patientId : relationship.caregiverId;
-  if (String(currentUser.id) !== String(responderId)) throw createHttpError(403, 'Solo el destinatario puede responder esta solicitud.', 'relationship_response_forbidden');
-
-  const updatedRelationship = await CaregiverRelationship.updateResponse(id, responseStatus);
-  if (!updatedRelationship) throw createHttpError(409, 'La solicitud de relacion ya fue respondida.', 'relationship_already_responded');
-
-  const initiator = await User.findById(initiatorId);
-  let notification = null;
-  if (initiator?.email) {
-    notification = await emailService.sendRelationshipResponseNotification({
-      email: initiator.email,
-      responderName: [currentUser.firstName, currentUser.lastName].filter(Boolean).join(' '),
-      status: responseStatus,
-    });
-  }
-  return {
-    action: 'relationship_request_responded',
-    notification: { channel: initiator?.email ? 'email' : null, delivered: Boolean(notification) },
-    relationship: updatedRelationship,
-    status: 'success',
-  };
 }
 
 async function createPendingRelationship(relationship, client = db) {
@@ -209,14 +176,6 @@ function normalizeToken(value) {
   return token;
 }
 
-function normalizeResponseStatus(value) {
-  const aliases = { accepted: 'aceptada', rejected: 'rechazada' };
-  const normalized = String(value || '').trim().toLowerCase();
-  const status = aliases[normalized] || normalized;
-  if (!RESPONSE_STATUSES.has(status)) throw createHttpError(422, 'La respuesta debe ser aceptada o rechazada.', 'invalid_relationship_response');
-  return status;
-}
-
 function normalizeTokenChannel(value) {
   const channel = String(value || 'qr').trim().toLowerCase();
   if (!['qr', 'enlace'].includes(channel)) throw createHttpError(422, 'invitationChannel debe ser qr o enlace.', 'invalid_invitation_channel');
@@ -248,5 +207,4 @@ module.exports = {
   createInvitationToken,
   redeemInvitationToken,
   requestRelationship,
-  respondToRelationship,
 };
