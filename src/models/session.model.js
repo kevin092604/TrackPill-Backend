@@ -19,7 +19,7 @@ function mapSession(row) {
 async function create(session, client = db) {
   const result = await client.query(
     `
-      INSERT INTO sessions (user_id, refresh_token, ip_address, user_agent, active)
+      INSERT INTO auth.sessions (user_id, refresh_token, ip_address, user_agent, active)
       VALUES ($1, $2, $3, $4, COALESCE($5, TRUE))
       RETURNING *
     `,
@@ -48,33 +48,30 @@ async function create(session, client = db) {
 async function findById(id, client = db) {
 
   const result = await client.query(
-    `SELECT * FROM sessions WHERE id = $1 LIMIT 1`,
+    `SELECT * FROM auth.sessions WHERE id = $1 LIMIT 1`,
     [id]
   );
 
   return mapSession(result.rows[0]);
 }
 
-/**
- * Invalida todas las sesiones activas previas de un usuario.
- * @author agblandin@unah.hn
- * @since 2026/06/23
- */
-async function invalidateAllByUserId(userId, client = db) {
-  await client.query(
+async function revokeAllByUserId(userId, client = db) {
+  const result = await client.query(
     `
-      UPDATE sessions 
-      SET active = false 
-      WHERE user_id = $1 AND active = true
+      UPDATE auth.sessions
+      SET active = FALSE
+      WHERE user_id = $1
+        AND active = TRUE
     `,
-    [userId]
+    [userId],
   );
-}
 
+  return result.rowCount;
+}
 
 module.exports = {
   create,
   findById,
   mapSession,
-  invalidateAllByUserId
+  revokeAllByUserId,
 };

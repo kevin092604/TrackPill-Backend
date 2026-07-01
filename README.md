@@ -171,6 +171,7 @@ APPLE_SERVICE_ID=com.trackpill.app.service
 APPLE_CALLBACK_ALLOWED_SCHEMES=trackpill
 APPLE_CALLBACK_ALLOWED_ORIGINS=https://tu-web.com
 ```
+
 ## Endpoint login tradicional
 
 `POST /auth/login`
@@ -234,3 +235,123 @@ Respuesta exitosa:
 }
 ```
 
+## Endpoint verificar código de recuperación
+
+`POST /auth/verify-code`
+
+Valida que el código de verificación recibido (generado para la recuperación de contraseña) corresponda al correo electrónico especificado, que no haya expirado y que no haya sido utilizado previamente. Si la validación es correcta, marca el código como utilizado y retorna un token JWT temporal (`resetToken`) con validez de 10 minutos para autorizar el restablecimiento de la contraseña.
+
+### Ejemplo de petición
+
+```json
+{
+  "email": "usuario@example.com",
+  "code": "123456"
+}
+```
+
+Respuesta exitosa:
+
+```json
+{
+  "success": true,
+  "action": "password_reset_allowed",
+  "status": "success",
+  "resetToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpX..."
+}
+```
+
+Respuestas de error comunes:
+
+- 400 Bad Request (Falta email o código):
+
+```json
+{
+  "success": false,
+  "code": "missing_code",
+  "message": "El código de verificación es requerido."
+}
+```
+
+- 401 Unauthorized (Código inválido o expirado):
+
+```json
+{
+  "success": false,
+  "code": "invalid_verification_code",
+  "message": "Código de verificación incorrecto."
+}
+```
+
+- 409 Conflict (Código ya utilizado):
+
+```json
+{
+  "success": false,
+  "code": "verification_code_used",
+  "message": "Este código ya ha sido utilizado."
+}
+```
+
+- 410 Gone (Código expirado):
+
+```json
+{
+  "success": false,
+  "code": "verification_code_expired",
+  "message": "El código de verificación ha expirado."
+}
+```
+
+## Solicitar recuperacion de contrasena
+
+`POST /auth/forgot-password`
+
+Genera un codigo de 6 digitos, lo almacena como `forgotten_password` con
+expiracion de 10 minutos y lo envia al correo registrado.
+
+```json
+{
+  "email": "usuario@example.com"
+}
+```
+
+## Endpoint reenviar codigo de verificacion
+
+`POST /auth/resend-email-verification`
+
+Genera un nuevo codigo de 6 digitos para un usuario pendiente de verificacion,
+marca como usados los codigos anteriores y envia el nuevo codigo por correo con
+expiracion de 10 minutos.
+
+```json
+{
+  "email": "usuario@example.com"
+}
+```
+
+## Restablecer contrasena
+
+`POST /auth/reset-password`
+
+Recibe el `resetToken` devuelto por `/auth/verify-code` y la nueva contrasena.
+Valida las reglas de seguridad, actualiza el hash y revoca las sesiones activas.
+
+```json
+{
+  "resetToken": "jwt-temporal",
+  "password": "NuevaClave1!"
+}
+```
+
+## Correo Gmail
+
+Usa una contrasena de aplicacion de Google, no la contrasena normal de la
+cuenta. Configura estas variables:
+
+```env
+SMTP_SERVICE=gmail
+GMAIL_USER=cuenta@gmail.com
+GMAIL_APP_PASSWORD=contrasena_de_aplicacion
+SMTP_FROM=TrackPill <cuenta@gmail.com>
+```

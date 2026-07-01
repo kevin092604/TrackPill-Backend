@@ -1,4 +1,6 @@
-CREATE TABLE IF NOT EXISTS users (
+CREATE SCHEMA IF NOT EXISTS auth;
+
+CREATE TABLE IF NOT EXISTS auth.users (
   id BIGSERIAL PRIMARY KEY,
   email VARCHAR(255) NOT NULL UNIQUE,
   first_name VARCHAR(120) NOT NULL,
@@ -13,22 +15,22 @@ CREATE TABLE IF NOT EXISTS users (
   gender VARCHAR(40)
 );
 
-ALTER TABLE users
+ALTER TABLE auth.users
   ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE;
 
-ALTER TABLE users
+ALTER TABLE auth.users
   ADD COLUMN IF NOT EXISTS email_verified_date TIMESTAMPTZ;
 
-CREATE TABLE IF NOT EXISTS provider_types (
+CREATE TABLE IF NOT EXISTS auth.provider_types (
   id BIGSERIAL PRIMARY KEY,
   name VARCHAR(40) NOT NULL UNIQUE,
   CONSTRAINT provider_types_name_check CHECK (name IN ('google', 'facebook', 'apple'))
 );
 
-CREATE TABLE IF NOT EXISTS social_providers (
+CREATE TABLE IF NOT EXISTS auth.social_providers (
   id BIGSERIAL PRIMARY KEY,
-  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  provider_type_id BIGINT NOT NULL REFERENCES provider_types(id),
+  user_id BIGINT NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  provider_type_id BIGINT NOT NULL REFERENCES auth.provider_types(id),
   external_provider_id VARCHAR(255) NOT NULL,
   provider_email VARCHAR(255),
   provider_name VARCHAR(255),
@@ -39,11 +41,11 @@ CREATE TABLE IF NOT EXISTS social_providers (
 );
 
 CREATE INDEX IF NOT EXISTS social_providers_user_provider_idx
-  ON social_providers (user_id, provider_type_id);
+  ON auth.social_providers (user_id, provider_type_id);
 
-CREATE TABLE IF NOT EXISTS pending_social_registrations (
+CREATE TABLE IF NOT EXISTS auth.pending_social_registrations (
   id BIGSERIAL PRIMARY KEY,
-  provider_type_id BIGINT NOT NULL REFERENCES provider_types(id),
+  provider_type_id BIGINT NOT NULL REFERENCES auth.provider_types(id),
   external_provider_id VARCHAR(255) NOT NULL,
   provider_email VARCHAR(255),
   provider_name VARCHAR(255),
@@ -62,11 +64,11 @@ CREATE TABLE IF NOT EXISTS pending_social_registrations (
 );
 
 CREATE INDEX IF NOT EXISTS pending_social_registrations_active_idx
-  ON pending_social_registrations (provider_type_id, external_provider_id, used, expires_at);
+  ON auth.pending_social_registrations (provider_type_id, external_provider_id, used, expires_at);
 
-CREATE TABLE IF NOT EXISTS sessions (
+CREATE TABLE IF NOT EXISTS auth.sessions (
   id BIGSERIAL PRIMARY KEY,
-  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id BIGINT NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   refresh_token TEXT NOT NULL UNIQUE,
   creation_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   ip_address VARCHAR(80),
@@ -74,9 +76,9 @@ CREATE TABLE IF NOT EXISTS sessions (
   active BOOLEAN NOT NULL DEFAULT TRUE
 );
 
-CREATE TABLE IF NOT EXISTS email_credentials (
+CREATE TABLE IF NOT EXISTS auth.email_credentials (
   id BIGSERIAL PRIMARY KEY,
-  user_id BIGINT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+  user_id BIGINT NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
   hash_password TEXT NOT NULL,
   failed_attempts INTEGER NOT NULL DEFAULT 0,
   change_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -85,9 +87,9 @@ CREATE TABLE IF NOT EXISTS email_credentials (
   locked_until TIMESTAMPTZ
 );
 
-CREATE TABLE IF NOT EXISTS verification_codes (
+CREATE TABLE IF NOT EXISTS auth.verification_codes (
   id BIGSERIAL PRIMARY KEY,
-  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id BIGINT NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   type VARCHAR(40) NOT NULL,
   hash_code TEXT NOT NULL,
   used BOOLEAN NOT NULL DEFAULT FALSE,
@@ -97,8 +99,8 @@ CREATE TABLE IF NOT EXISTS verification_codes (
 );
 
 CREATE INDEX IF NOT EXISTS verification_codes_user_type_used_idx
-  ON verification_codes (user_id, type, used);
+  ON auth.verification_codes (user_id, type, used);
 
-INSERT INTO provider_types (name)
+INSERT INTO auth.provider_types (name)
 VALUES ('google'), ('facebook'), ('apple')
 ON CONFLICT (name) DO NOTHING;

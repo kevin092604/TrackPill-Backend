@@ -19,7 +19,7 @@ function mapVerificationCode(row) {
 async function create(code, client = db) {
   const result = await client.query(
     `
-      INSERT INTO verification_codes (user_id, type, hash_code, expiration_date)
+      INSERT INTO auth.verification_codes (user_id, type, hash_code, expiration_date)
       VALUES ($1, $2, $3, $4)
       RETURNING *
     `,
@@ -33,7 +33,7 @@ async function findLatestByUserAndType(userId, type, client = db) {
   const result = await client.query(
     `
       SELECT *
-      FROM verification_codes
+      FROM auth.verification_codes
       WHERE user_id = $1
         AND type = $2
       ORDER BY creation_date DESC
@@ -48,7 +48,7 @@ async function findLatestByUserAndType(userId, type, client = db) {
 async function markUsed(id, client = db) {
   const result = await client.query(
     `
-      UPDATE verification_codes
+      UPDATE auth.verification_codes
       SET used = TRUE
       WHERE id = $1
         AND used = FALSE
@@ -63,7 +63,7 @@ async function markUsed(id, client = db) {
 async function markUnusedAsUsed(userId, type, client = db) {
   await client.query(
     `
-      UPDATE verification_codes
+      UPDATE auth.verification_codes
       SET used = TRUE
       WHERE user_id = $1
         AND type = $2

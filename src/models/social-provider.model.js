@@ -36,8 +36,8 @@ async function findByProviderAndExternalId(providerTypeId, externalProviderId, c
         u.phone,
         u.birth_date,
         u.gender
-      FROM social_providers sp
-      INNER JOIN users u ON u.id = sp.user_id
+      FROM auth.social_providers sp
+      INNER JOIN auth.users u ON u.id = sp.user_id
       WHERE sp.provider_type_id = $1
         AND sp.external_provider_id = $2
       LIMIT 1
@@ -51,7 +51,7 @@ async function findByProviderAndExternalId(providerTypeId, externalProviderId, c
 async function createOrUpdateLink(userId, providerTypeId, profile, client = db) {
   const result = await client.query(
     `
-      INSERT INTO social_providers (
+      INSERT INTO auth.social_providers (
         user_id,
         provider_type_id,
         external_provider_id,
@@ -87,7 +87,7 @@ async function createOrUpdateLink(userId, providerTypeId, profile, client = db) 
 async function syncProfile(id, profile, client = db) {
   const result = await client.query(
     `
-      UPDATE social_providers
+      UPDATE auth.social_providers
       SET
         provider_email = COALESCE($2, provider_email),
         provider_name = COALESCE($3, provider_name),
@@ -106,8 +106,8 @@ async function findProviderNamesByUserId(userId, client = db) {
   const result = await client.query(
     `
       SELECT pt.name
-      FROM social_providers sp
-      INNER JOIN provider_types pt ON pt.id = sp.provider_type_id
+      FROM auth.social_providers sp
+      INNER JOIN auth.provider_types pt ON pt.id = sp.provider_type_id
       WHERE sp.user_id = $1
       ORDER BY pt.name
     `,
