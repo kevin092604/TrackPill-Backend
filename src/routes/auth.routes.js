@@ -10,6 +10,12 @@ router.post('/social/complete-register', authController.socialCompleteRegister);
 router.post('/social-register', authController.socialRegister);
 router.get('/apple/callback', authController.appleCallback);
 router.post('/apple/callback', authController.appleCallback);
-router.post('/login',loginLimiter,authController.authenticateWithEmailAndPassword);
+router.post('/register', authController.registerWithEmailAndPassword);
+router.post('/resend-email-verification', authController.resendEmailVerification);
+router.post('/verify-email', authController.verifyEmail);
+router.post('/forgot-password', authController.forgotPassword);
+router.post('/verify-code', authController.verifyRecoveryCode);
+router.post('/reset-password', authController.resetPassword);
+router.post('/login', loginLimiter, authController.authenticateWithEmailAndPassword);
 
 module.exports = router;

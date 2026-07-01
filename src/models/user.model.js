@@ -23,8 +23,23 @@ function mapUser(row) {
 
 async function findByEmail(email, client = db) {
   const result = await client.query(
-    'SELECT * FROM users WHERE email = $1 LIMIT 1',
+    'SELECT * FROM auth.users WHERE email = $1 LIMIT 1',
     [email],
+  );
+
+  return mapUser(result.rows[0]);
+}
+
+/**
+ * Busca un usuario por su número de teléfono
+ * @author agblandin@unah.hn
+ * @version 0.1.0
+ * @date 2026/06/21
+ */
+async function findByPhone(phone, client = db) {
+  const result = await client.query(
+    'SELECT * FROM auth.users WHERE phone = $1 LIMIT 1',
+    [phone],
   );
 
   return mapUser(result.rows[0]);
@@ -32,17 +47,17 @@ async function findByEmail(email, client = db) {
 
 async function findById(id, client = db) {
   const result = await client.query(
-    'SELECT * FROM users WHERE id = $1 LIMIT 1',
+    'SELECT * FROM auth.users WHERE id = $1 LIMIT 1',
     [id],
   );
 
   return mapUser(result.rows[0]);
 }
 
-async function createSocialUser(user, client = db) {
+async function create(user, client = db) {
   const result = await client.query(
     `
-      INSERT INTO users (
+      INSERT INTO auth.users (
         email,
         first_name,
         last_name,
@@ -73,9 +88,33 @@ async function createSocialUser(user, client = db) {
   return mapUser(result.rows[0]);
 }
 
+async function createSocialUser(user, client = db) {
+  return create(user, client);
+}
+
+async function markEmailVerified(userId, client = db) {
+  const result = await client.query(
+    `
+      UPDATE auth.users
+      SET email_verified = TRUE,
+          email_verified_date = COALESCE(email_verified_date, NOW()),
+          last_update = NOW()
+      WHERE id = $1
+      RETURNING *
+    `,
+    [userId],
+  );
+
+  return mapUser(result.rows[0]);
+}
+
 module.exports = {
+  create,
   createSocialUser,
   findByEmail,
   findById,
+  findByPhone,
+  markEmailVerified,
   mapUser,
 };
+

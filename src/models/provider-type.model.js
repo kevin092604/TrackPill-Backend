@@ -14,7 +14,7 @@ function mapProviderType(row) {
 async function findOrCreateByName(name, client = db) {
   const result = await client.query(
     `
-      INSERT INTO provider_types (name)
+      INSERT INTO auth.provider_types (name)
       VALUES ($1)
       ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
       RETURNING *

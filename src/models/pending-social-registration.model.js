@@ -29,8 +29,8 @@ async function findActiveByRegistrationToken(registrationToken, client = db) {
   const result = await client.query(
     `
       SELECT psr.*, pt.name AS provider
-      FROM pending_social_registrations psr
-      INNER JOIN provider_types pt ON pt.id = psr.provider_type_id
+      FROM auth.pending_social_registrations psr
+      INNER JOIN auth.provider_types pt ON pt.id = psr.provider_type_id
       WHERE psr.registration_token = $1
         AND psr.used = FALSE
         AND psr.expires_at > NOW()
@@ -46,7 +46,7 @@ async function findReusableByProvider(providerTypeId, externalProviderId, client
   const result = await client.query(
     `
       SELECT *
-      FROM pending_social_registrations
+      FROM auth.pending_social_registrations
       WHERE provider_type_id = $1
         AND external_provider_id = $2
         AND used = FALSE
@@ -61,7 +61,7 @@ async function findReusableByProvider(providerTypeId, externalProviderId, client
 async function upsertPending(providerTypeId, profile, registrationToken, expiresAt, client = db) {
   const result = await client.query(
     `
-      INSERT INTO pending_social_registrations (
+      INSERT INTO auth.pending_social_registrations (
         provider_type_id,
         external_provider_id,
         provider_email,
@@ -120,7 +120,7 @@ async function upsertPending(providerTypeId, profile, registrationToken, expires
 async function markUsed(registrationToken, client = db) {
   const result = await client.query(
     `
-      UPDATE pending_social_registrations
+      UPDATE auth.pending_social_registrations
       SET used = TRUE,
           last_update = NOW()
       WHERE registration_token = $1

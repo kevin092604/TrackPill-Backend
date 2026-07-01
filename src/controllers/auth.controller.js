@@ -1,5 +1,88 @@
 const authService = require('../services/auth.service');
 
+/**
+ * Controlador que maneja el registro de un usuario con correo y contraseña
+ * @author Jesús Zepeda
+ * @version 0.1.0
+ * @since 2026/06/21
+ * @date 2026/06/21
+ * @param {Object} req - Objeto con la solicitud.
+ * @param {Object} res - Objeto con la respuesta.
+ * @param {Function} next - Función para pasar el control a la siguiente función middleware.
+ */
+async function registerWithEmailAndPassword(req, res, next) {
+
+  try {
+    const result = await authService.registerWithEmailAndPassword(req.body);
+
+    res.status(201).json(
+      {
+        success: true,
+        ...result,
+      }
+    );
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function verifyEmail(req, res, next) {
+  try {
+    const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+
+    const result = await authService.verifyEmail({
+      code: req.body?.code,
+      email: req.body?.email,
+      ipAddress,
+      userAgent,
+    });
+
+    res.status(200).json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function forgotPassword(req, res, next) {
+  try {
+    const result = await authService.forgotPassword(req.body);
+    
+    res.status(200).json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function resendEmailVerification(req, res, next) {
+  try {
+    const result = await authService.resendEmailVerification(req.body);
+
+    res.status(200).json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Controlador que maneja el inicio de sesión con correo y contraseña
+ * @author Jesús Zepeda
+ * @version 0.1.0
+ * @since 2026/06/20
+ * @date 2026/06/20
+ * @param {Object} req - Objeto con la solicitud.
+ * @param {Object} res - Objeto con la respuesta.
+ * @param {Function} next - Función para pasar el control a la siguiente función middleware.
+ */
 async function authenticateWithEmailAndPassword(req, res, next) {
 
   try {
@@ -30,7 +113,6 @@ async function authenticateWithEmailAndPassword(req, res, next) {
   }
 }
   
-
 async function socialAuth(req, res, next) {
   try {
     console.info('[auth/social] request', {
@@ -93,10 +175,56 @@ async function appleCallback(req, res, next) {
   }
 }
 
+/**
+ * Controlador que maneja la verificación del código de recuperación de contraseña
+ * @author Jesús Zepeda
+ * @version 0.1.0
+ * @since 2026/06/22
+ * @date 2026/06/22
+ * @param {Object} req Objeto con la solicitud
+ * @param {Object} res Objeto con la respuesta
+ * @param {Function} next Función para pasar el control a la siguiente función middleware
+ */
+async function verifyRecoveryCode(req, res, next) {
+  try {
+    const result = await authService.verifyRecoveryCode(req.body);
+
+    res.status(200).json(
+      {
+        success: true,
+        ...result,
+      }
+    );
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function resetPassword(req, res, next) {
+  try {
+    const result = await authService.resetPassword(req.body);
+
+    res.status(200).json(
+      {
+        success: true,
+        ...result,
+      }
+    );
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   authenticateWithEmailAndPassword,
   appleCallback,
+  forgotPassword,
+  registerWithEmailAndPassword,
+  resetPassword,
+  resendEmailVerification,
   socialCompleteRegister,
   socialAuth,
   socialRegister,
+  verifyEmail,
+  verifyRecoveryCode,
 };
