@@ -27,8 +27,15 @@ async function redeemInvitationToken(req, res, next) {
   } catch (error) { next(error); }
 }
 
+async function respondToRelationship(req, res, next) {
+  try {
+    res.status(200).json({ success: true, ...await relationshipService.respondToRelationship(req.params.id, req.body, req.user) });
+  } catch (error) { next(error); }
+}
+
 module.exports = {
   createInvitationToken,
   redeemInvitationToken,
   requestRelationship,
+  respondToRelationship,
 };

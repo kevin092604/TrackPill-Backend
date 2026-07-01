@@ -24,6 +24,39 @@ async function sendPasswordRecoveryCode(email, code) {
   });
 }
 
+async function sendRelationshipResponseNotification({ email, responderName, status }) {
+  const accepted = status === 'aceptada';
+  const subject = accepted
+    ? 'Tu solicitud de relacion fue aceptada'
+    : 'Tu solicitud de relacion fue rechazada';
+  const text = [
+    'Hola,',
+    '',
+    `${responderName || 'El usuario'} ${accepted ? 'acepto' : 'rechazo'} tu solicitud de relacion en TrackPill.`,
+    '',
+    'Puedes revisar el estado actualizado desde la aplicacion.',
+  ].join('\n');
+
+  if (!isSmtpConfigured()) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('El servicio de correos no esta configurado.');
+    }
+
+    console.info(`[relationship-response] Notificacion para ${email}: ${status}`);
+    return {
+      accepted: [email],
+      devMode: true,
+    };
+  }
+
+  return getTransporter().sendMail({
+    from: getFromAddress(),
+    subject,
+    text,
+    to: email,
+  });
+}
+
 async function sendCodeEmail({ code, email, heading, logLabel, message, subject }) {
   if (!isSmtpConfigured()) {
     if (process.env.NODE_ENV === 'production') {
@@ -124,4 +157,5 @@ function buildCodeHtml({ code, heading, message }) {
 module.exports = {
   sendEmailVerificationCode,
   sendPasswordRecoveryCode,
+  sendRelationshipResponseNotification,
 };

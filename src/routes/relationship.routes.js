@@ -9,5 +9,6 @@ router.use(authMiddleware);
 router.post('/request', relationshipController.requestRelationship);
 router.post('/invite-token', relationshipController.createInvitationToken);
 router.post('/redeem-token', relationshipController.redeemInvitationToken);
+router.post('/:id/respond', relationshipController.respondToRelationship);
 
 module.exports = router;

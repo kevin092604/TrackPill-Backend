@@ -68,8 +68,26 @@ async function findOpenBetween(firstUserId, secondUserId, client = db) {
   return mapCaregiverRelationship(result.rows[0]);
 }
 
+async function findById(id, client = db) {
+  const result = await client.query('SELECT * FROM auth.caregiver_relationships WHERE id = $1 LIMIT 1', [id]);
+  return mapCaregiverRelationship(result.rows[0]);
+}
+
+async function updateResponse(id, status, client = db) {
+  const result = await client.query(
+    `UPDATE auth.caregiver_relationships
+     SET status = $2::VARCHAR, active = ($2::VARCHAR = 'aceptada'),
+         response_date = NOW(), last_status_change = NOW()
+     WHERE id = $1 AND status = 'pendiente' RETURNING *`,
+    [id, status],
+  );
+  return mapCaregiverRelationship(result.rows[0]);
+}
+
 module.exports = {
   create,
+  findById,
   findOpenBetween,
   mapCaregiverRelationship,
+  updateResponse,
 };

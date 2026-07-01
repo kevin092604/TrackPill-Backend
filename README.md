@@ -10,11 +10,14 @@ src/
 |   |-- db.js
 |   `-- schema.sql
 |-- controllers/
-|   `-- auth.controller.js
+|   |-- auth.controller.js
+|   `-- relationship.controller.js
 |-- middlewares/
 |   `-- auth.middleware.js
 |-- models/
+|   |-- caregiver-relationship.model.js
 |   |-- email-credential.model.js
+|   |-- invitation-token.model.js
 |   |-- pending-social-registration.model.js
 |   |-- provider-type.model.js
 |   |-- session.model.js
@@ -22,9 +25,11 @@ src/
 |   |-- user.model.js
 |   `-- verification-code.model.js
 |-- routes/
-|   `-- auth.routes.js
+|   |-- auth.routes.js
+|   `-- relationship.routes.js
 |-- services/
 |   |-- auth.service.js
+|   |-- relationship.service.js
 |   `-- social-provider.service.js
 |-- utils/
 |   `-- helpers.js
@@ -70,6 +75,8 @@ El backend sigue el diagrama base en PostgreSQL:
 - `SocialProvider`
 - `PendingSocialRegistration`
 - `Session`
+- `CaregiverRelationship`
+- `InvitationToken`
 
 Los proveedores sociales no se guardan embebidos en `User`; se vinculan mediante
 `SocialProvider` y `ProviderType`.
@@ -88,6 +95,73 @@ En SQL se usan nombres plurales para evitar palabras reservadas:
 - `social_providers`
 - `pending_social_registrations`
 - `sessions`
+- `caregiver_relationships`
+- `invitation_tokens`
+
+## Relaciones cuidador-paciente
+
+Todos los endpoints de esta seccion requieren `Authorization: Bearer <token>`.
+
+### Solicitud por busqueda
+
+`POST /relationships/request`
+
+Acepta `targetUserId` o `targetEmail`. `initiatedAs` indica el rol del usuario
+autenticado y debe ser `caregiver` o `patient`.
+
+```json
+{
+  "targetUserId": "25",
+  "initiatedAs": "caregiver",
+  "relationshipLabel": "Hija"
+}
+```
+
+La relacion se crea como `pendiente`, inactiva y con canal `busqueda`. Si ya
+existe una solicitud pendiente o relacion aceptada entre ambos usuarios, incluso
+con los participantes invertidos, responde `409 relationship_already_exists`.
+
+### Generar invitacion QR o enlace
+
+`POST /relationships/invite-token`
+
+```json
+{
+  "initiatedAs": "patient",
+  "invitationChannel": "enlace"
+}
+```
+
+`invitationChannel` admite `qr` o `enlace`. El token expira en 15 minutos por
+defecto; se configura con `RELATIONSHIP_INVITATION_EXPIRES_IN_MINUTES`.
+
+### Redimir invitacion
+
+`POST /relationships/redeem-token`
+
+```json
+{
+  "token": "enlace.token-seguro",
+  "relationshipLabel": "Familiar"
+}
+```
+
+El token solo puede utilizarse una vez. Al redimirlo crea una relacion pendiente
+y conserva el canal con el que se genero.
+
+### Responder solicitud
+
+`POST /relationships/:id/respond`
+
+```json
+{
+  "status": "aceptada"
+}
+```
+
+Solo el destinatario puede responder con `aceptada` o `rechazada`. Al aceptar,
+`active` pasa a `true`; al rechazar permanece `false`. En ambos casos se registra
+la fecha de respuesta y se envia una notificacion por correo al iniciador.
 
 ## Endpoint social auth
 
