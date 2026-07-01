@@ -107,7 +107,7 @@ async function findProviderNamesByUserId(userId, client = db) {
     `
       SELECT pt.name
       FROM auth.social_providers sp
-      INNER JOIN provider_types pt ON pt.id = sp.provider_type_id
+      INNER JOIN auth.provider_types pt ON pt.id = sp.provider_type_id
       WHERE sp.user_id = $1
       ORDER BY pt.name
     `,

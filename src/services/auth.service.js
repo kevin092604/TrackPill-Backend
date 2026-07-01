@@ -468,6 +468,7 @@ async function completeSocialRegistration(payload) {
         'login_direct',
         existingSocialProvider.user,
         await SocialProvider.findProviderNamesByUserId(existingSocialProvider.user.id, client),
+        client,
       );
     }
 
@@ -495,6 +496,7 @@ async function completeSocialRegistration(payload) {
         'linked_existing_account',
         existingUser,
         await SocialProvider.findProviderNamesByUserId(existingUser.id, client),
+        client,
       );
     }
 
@@ -512,6 +514,7 @@ async function completeSocialRegistration(payload) {
       'registered_social_account',
       user,
       await SocialProvider.findProviderNamesByUserId(user.id, client),
+      client,
     );
   });
 }
@@ -792,11 +795,24 @@ function normalizeVerificationCode(code) {
   return /^\d{6}$/.test(value) ? value : null;
 }
 
-function buildLoggedInResponse(action, user, providers = []) {
+async function buildLoggedInResponse(action, user, providers = [], client = db) {
+  const refreshToken = crypto.randomBytes(40).toString('hex');
+  const session = await Session.create(
+    {
+      active: true,
+      ipAddress: null,
+      refreshToken,
+      userAgent: null,
+      userId: user.id,
+    },
+    client,
+  );
+
   return {
     action,
+    refreshToken,
     status: 'success',
-    token: signAuthToken(user),
+    token: signAuthToken(user, session.id),
     user: toPublicUser(user, providers),
   };
 }

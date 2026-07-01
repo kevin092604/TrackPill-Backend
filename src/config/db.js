@@ -1,10 +1,14 @@
 const { Pool } = require('pg');
 
+const databaseUrl = process.env.DATABASE_URL || '';
+const isLocalDatabase = /@(localhost|127\.0\.0\.1)(:\d+)?\//i.test(databaseUrl);
+const useSsl = process.env.DATABASE_SSL
+  ? process.env.DATABASE_SSL === 'true'
+  : !isLocalDatabase;
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
+  connectionString: databaseUrl,
+  ssl: useSsl ? { rejectUnauthorized: false } : false,
 });
 
 async function connectDB() {
