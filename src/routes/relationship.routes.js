@@ -7,5 +7,7 @@ const router = express.Router();
 
 router.use(authMiddleware);
 router.post('/request', relationshipController.requestRelationship);
+router.post('/invite-token', relationshipController.createInvitationToken);
+router.post('/redeem-token', relationshipController.redeemInvitationToken);
 
 module.exports = router;

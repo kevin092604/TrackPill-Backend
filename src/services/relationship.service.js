@@ -1,5 +1,8 @@
+const crypto = require('crypto');
+
 const db = require('../config/db');
 const CaregiverRelationship = require('../models/caregiver-relationship.model');
+const InvitationToken = require('../models/invitation-token.model');
 const User = require('../models/user.model');
 const { createHttpError, normalizeEmail } = require('../utils/helpers');
 
@@ -19,6 +22,47 @@ async function requestRelationship(payload, currentUser) {
     initiatedBy,
     invitationChannel: 'busqueda',
     relationshipLabel: normalizeRelationshipLabel(payload?.relationshipLabel),
+  });
+}
+
+async function createInvitationToken(payload, currentUser) {
+  const initiatedAs = normalizeInitiatorRole(payload?.initiatedAs || payload?.initiatedBy);
+  const invitationChannel = normalizeTokenChannel(payload?.invitationChannel);
+  const expirationMinutes = getInvitationExpirationMinutes();
+  const token = `${invitationChannel}.${crypto.randomBytes(32).toString('base64url')}`;
+  const invitationToken = await InvitationToken.create({
+    expirationDate: new Date(Date.now() + expirationMinutes * 60 * 1000),
+    initiatedAs,
+    initiatorId: currentUser.id,
+    token,
+  });
+
+  return { action: 'invitation_token_created', invitationChannel, invitationToken, status: 'success' };
+}
+
+async function redeemInvitationToken(payload, currentUser) {
+  const token = normalizeToken(payload?.token);
+  const invitationChannel = getChannelFromToken(token, payload?.invitationChannel);
+
+  return db.transaction(async (client) => {
+    const invitation = await InvitationToken.findByToken(token, client, { forUpdate: true });
+    if (!invitation) throw createHttpError(404, 'Token de invitacion no encontrado.', 'invitation_token_not_found');
+    if (invitation.used) throw createHttpError(409, 'El token de invitacion ya fue utilizado.', 'invitation_token_used');
+    if (new Date(invitation.expirationDate) <= new Date()) throw createHttpError(410, 'El token de invitacion expiro.', 'invitation_token_expired');
+
+    ensureDifferentUsers(invitation.initiatorId, currentUser.id);
+    ensureAvailableUser(await User.findById(invitation.initiatorId, client), 'invitation_initiator_not_found');
+    const participants = buildParticipants(invitation.initiatorId, currentUser.id, invitation.initiatedAs);
+    const relationship = await createPendingRelationship({
+      ...participants,
+      initiatedBy: invitation.initiatedAs,
+      invitationChannel,
+      relationshipLabel: normalizeRelationshipLabel(payload?.relationshipLabel),
+    }, client);
+    if (!await InvitationToken.markUsed(invitation.id, client)) {
+      throw createHttpError(409, 'El token de invitacion ya fue utilizado.', 'invitation_token_used');
+    }
+    return { action: 'invitation_token_redeemed', relationship, status: 'success' };
   });
 }
 
@@ -126,6 +170,27 @@ function normalizeRelationshipLabel(value) {
   return label || null;
 }
 
+function normalizeToken(value) {
+  const token = String(value || '').trim();
+  if (!token || token.length > 200) throw createHttpError(400, 'Token de invitacion invalido.', 'invalid_invitation_token');
+  return token;
+}
+
+function normalizeTokenChannel(value) {
+  const channel = String(value || 'qr').trim().toLowerCase();
+  if (!['qr', 'enlace'].includes(channel)) throw createHttpError(422, 'invitationChannel debe ser qr o enlace.', 'invalid_invitation_channel');
+  return channel;
+}
+
+function getChannelFromToken(token, fallbackChannel) {
+  return normalizeTokenChannel(token.includes('.') ? token.split('.', 1)[0] : fallbackChannel);
+}
+
+function getInvitationExpirationMinutes() {
+  const value = Number(process.env.RELATIONSHIP_INVITATION_EXPIRES_IN_MINUTES || 15);
+  return Number.isFinite(value) && value > 0 ? Math.min(value, 10080) : 15;
+}
+
 function throwDuplicateRelationship(relationship) {
   throw createHttpError(
     409,
@@ -139,5 +204,7 @@ function throwDuplicateRelationship(relationship) {
 }
 
 module.exports = {
+  createInvitationToken,
+  redeemInvitationToken,
   requestRelationship,
 };
