@@ -28,4 +28,34 @@ async function getPatientSummary(req, res, next) {
     }
 }
 
-module.exports = { getPatientSummary };
+/**
+ * Controlador que maneja la solicitud para obtener el resumen de seguimiento de los pacientes de un cuidador.
+ * @author Jesús Zepeda
+ * @version 0.1.0
+ * @since 2026/07/03
+ * @date 2026/07/03
+ * @param {Object} req Objeto de solicitud
+ * @param {Object} res Objeto de respuesta
+ * @param {Function} next Función next
+ */
+async function getCaregiverSummary(req, res, next) {
+    try {
+        const caregiverId = req.user.id;
+
+        const patients = await dashboardService.getCaregiverSummary(caregiverId);
+
+        res.status(200).json(
+            {
+                success: true,
+                patients,
+            }
+        );
+    } catch (error) {
+        next(error);
+    }
+}
+
+module.exports = {
+    getPatientSummary,
+    getCaregiverSummary,
+};

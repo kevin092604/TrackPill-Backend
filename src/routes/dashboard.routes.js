@@ -8,5 +8,6 @@ const router = express.Router();
 router.use(authMiddleware);
 
 router.get('/patient/summary', dashboardController.getPatientSummary);
+router.get('/caregiver/summary', dashboardController.getCaregiverSummary);
 
 module.exports = router;

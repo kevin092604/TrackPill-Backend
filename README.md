@@ -380,6 +380,46 @@ Calcula y retorna para el paciente autenticado: el total de dosis programadas, c
 }
 ```
 
+## Endpoint resumen de seguimiento para cuidador
+
+`GET /dashboard/caregiver/summary`
+
+Retorna, para cada paciente con relación "aceptada" vinculado al cuidador autenticado, su estado de adherencia del día actual (total de dosis programadas, completadas, pendientes y porcentaje de adherencia del día). Requiere token Bearer de autenticación en el header `Authorization`.
+
+### Ejemplo de respuesta exitosa (200 OK)
+
+```json
+{
+  "success": true,
+  "patients": [
+    {
+      "id": "2",
+      "firstName": "Cesarín",
+      "lastName": "Cruz",
+      "email": "cesarin.cruz@trackpill.com",
+      "todayAdherence": {
+        "scheduled": 3,
+        "completed": 3,
+        "pending": 0,
+        "percentage": 100
+      }
+    },
+    {
+      "id": "3",
+      "firstName": "Ángel",
+      "lastName": "Blandito",
+      "email": "angel.blandito@trackpill.com",
+      "todayAdherence": {
+        "scheduled": 4,
+        "completed": 1,
+        "pending": 3,
+        "percentage": 25
+      }
+    }
+  ]
+}
+```
+
 ## Correo Gmail
 
 Usa una contrasena de aplicacion de Google, no la contrasena normal de la
