@@ -344,6 +344,42 @@ Valida las reglas de seguridad, actualiza el hash y revoca las sesiones activas.
 }
 ```
 
+## Endpoint resumen diario de paciente
+
+`GET /dashboard/patient/summary`
+
+Calcula y retorna para el paciente autenticado: el total de dosis programadas, completadas y pendientes del día; la información de la próxima dosis pendiente (medicamento, hora programada y cantidad); y el historial de adherencia de los últimos 7 días para el gráfico semanal. Requiere token Bearer de autenticación en el header `Authorization`.
+
+### Ejemplo de respuesta exitosa (200 OK)
+
+```json
+{
+  "success": true,
+  "summary": {
+    "today": {
+      "scheduled": 4,
+      "completed": 2,
+      "pending": 2
+    },
+    "nextDose": {
+      "id": "100",
+      "medicationName": "Ibuprofeno 400mg",
+      "scheduledTime": "2026-07-02T08:00:00Z",
+      "dose": "1 tableta"
+    },
+    "weeklyAdherence": [
+      { "day": "Mon", "scheduled": 3, "completed": 3, "percentage": 100 },
+      { "day": "Tue", "scheduled": 3, "completed": 2, "percentage": 66.6 },
+      { "day": "Wed", "scheduled": 4, "completed": 4, "percentage": 100 },
+      { "day": "Thu", "scheduled": 4, "completed": 2, "percentage": 50 },
+      { "day": "Fri", "scheduled": 3, "completed": 3, "percentage": 100 },
+      { "day": "Sat", "scheduled": 2, "completed": 2, "percentage": 100 },
+      { "day": "Sun", "scheduled": 2, "completed": 1, "percentage": 50 }
+    ]
+  }
+}
+```
+
 ## Correo Gmail
 
 Usa una contrasena de aplicacion de Google, no la contrasena normal de la
