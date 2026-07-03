@@ -6,6 +6,7 @@ const express = require('express');
 const { connectDB } = require('./config/db');
 const authRoutes = require('./routes/auth.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
+const notificationRouter = require('../src/routes/notification.routers')
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.get('/health', (_req, res) => {
 
 app.use('/auth', authRoutes);
 app.use('/dashboard', dashboardRoutes);
+app.use('/notification',notificationRouter);
 
 app.use((req, res) => {
   res.status(404).json({

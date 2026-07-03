@@ -420,6 +420,42 @@ Retorna, para cada paciente con relación "aceptada" vinculado al cuidador auten
 }
 ```
 
+## Endpoint de Notificaciones del Usuario
+
+`GET /notifications`
+
+Retorna las notificaciones del usuario autenticado, ordenadas por fecha descendente. Incluye el tipo de notificación, mensaje, estado de lectura y las referencias necesarias para la navegación (paciente, medicamento o invitación). Requiere token Bearer de autenticación en el header `Authorization`.
+
+### Ejemplo de respuesta exitosa (200 OK)
+
+```json
+{
+  "success": true,
+  "notifications": [
+    {
+      "id": "101",
+      "type": "medication_reminder",
+      "message": "Es hora de tomar 1 pastilla de Paracetamol (500mg).",
+      "isRead": false,
+      "createdAt": "2026-07-03T11:30:00Z",
+      "references": {
+        "medicineId": "10"
+      }
+    },
+    {
+      "id": "102",
+      "type": "caregiver_invitation",
+      "message": "Blandin te ha invitado a ser su cuidador.",
+      "isRead": true,
+      "createdAt": "2026-07-02T15:45:00Z",
+      "references": {
+        "invitationId": "5",
+        "patientId": "1"
+      }
+    }
+  ]
+}
+``
 ## Correo Gmail
 
 Usa una contrasena de aplicacion de Google, no la contrasena normal de la
