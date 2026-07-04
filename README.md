@@ -455,7 +455,20 @@ Retorna las notificaciones del usuario autenticado, ordenadas por fecha descende
     }
   ]
 }
-``
+```
+
+## Tareas Programadas (Jobs)
+
+### Generación diaria de dosis
+
+El sistema cuenta con un script independiente de Node.js diseñado para ejecutarse una vez al día a través de tareas programadas de la infraestructura (como Linux `crontab`, Heroku Scheduler, AWS EventBridge, etc.). Su objetivo es pre-generar las dosis del día siguiente en la tabla `doses` en base a los horarios activos (`dose_schedules`) de cada medicamento activo.
+
+Para ejecutar este job manualmente:
+
+```bash
+node src/jobs/generate-daily-doses.js
+```
+
 ## Correo Gmail
 
 Usa una contrasena de aplicacion de Google, no la contrasena normal de la
