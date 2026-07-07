@@ -1,4 +1,5 @@
 const relationshipService = require('../services/relationship.service');
+const {createHttpError} = require('../utils/helpers')
 
 async function requestRelationship(req, res, next) {
   try {
@@ -61,10 +62,40 @@ async function updateRelationshipActiveStatus(req, res, next) {
   }
 }
 
+/**
+ * Controlador para obtener el listado del círculo de cuidado
+ * @author agblandin@unah.hn
+ * @version 0.1.0
+ * @since 2026/07/07
+ * @date 2026/07/07
+ * @param {Object} req - Request object
+ * @param {Object} res - Response object
+ */
+async function getRelationships(req, res, next) {
+  try {
+    const { direction } = req.query;
+    const userId = req?.user?.id; 
+
+    if (!userId) {
+      throw createHttpError(401, 'Usuario no autenticado.', 'unauthorized');
+    }
+
+    const relationships = await relationshipService.getRelationshipsList(userId, direction);
+
+    res.status(200).json({
+      success: true,
+      relationships,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   createInvitationToken,
   redeemInvitationToken,
   requestRelationship,
   respondToRelationship,
   updateRelationshipActiveStatus,
+  getRelationships,
 };

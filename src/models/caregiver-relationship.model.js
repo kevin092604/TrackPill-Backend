@@ -105,6 +105,59 @@ async function updateActiveStatus(id, active, client = db) {
   return mapCaregiverRelationship(result.rows[0]);
 }
 
+/**
+ * Encuentra las relaciones aceptadas dependiendo de la dirección.
+ * @author agblandin@unah.hn
+ * @version 0.1.0
+ * @since 2026/07/07
+ * @date 2026/07/07
+ * 
+ */
+async function findAcceptedByDirection(userId, direction, client = db) {
+  const isCaregiverQuery = direction === 'patients';
+
+  const userColumn = isCaregiverQuery ? 'caregiver_id' : 'patient_id';
+  const targetColumn = isCaregiverQuery ? 'patient_id' : 'caregiver_id';
+
+  const result = await client.query(
+    `
+      SELECT 
+        cr.id,
+        cr.caregiver_id,
+        cr.patient_id,
+        cr.relationship_label,
+        cr.active,
+        cr.status,
+        u.id AS target_user_id,
+        u.first_name,
+        u.last_name,
+        u.email
+      FROM auth.caregiver_relationships cr
+      JOIN auth.users u ON cr.${targetColumn} = u.id
+      WHERE cr.${userColumn} = $1 
+        AND cr.status = 'aceptada'
+      ORDER BY cr.last_status_change DESC
+    `,
+    [userId]
+  );
+
+  return result.rows.map(row => ({
+    id: row.id,
+    caregiverId: row.caregiver_id,
+    patientId: row.patient_id,
+    relationshipLabel: row.relationship_label,
+    active: row.active,
+    status: row.status,
+    user: {
+      id: row.target_user_id,
+      firstName: row.first_name,
+      lastName: row.last_name,
+      email: row.email
+    }
+  }));
+}
+
+
 module.exports = {
   create,
   findById,
@@ -112,4 +165,5 @@ module.exports = {
   mapCaregiverRelationship,
   updateActiveStatus,
   updateResponse,
+  findAcceptedByDirection
 };

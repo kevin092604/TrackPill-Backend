@@ -310,10 +310,37 @@ function throwDuplicateRelationship(relationship) {
   );
 }
 
+/**
+ * Función que obtiene el listado del círculo de cuidado de un usuario.
+ * @author agblandin@unah.hn
+ * @version 0.1.0
+ * @since 2026/07/07
+ * @date 2026/07/07
+ * @param {number} userId ID del usuario autenticado.
+ * @param {string} direction Dirección de la relación ('caregivers' o 'patients').
+ * @returns {Promise<Array>} Lista de relaciones aceptadas.
+ */
+async function getRelationshipsList(userId, direction) {
+  if (!['caregivers', 'patients'].includes(direction)) {
+    throw createHttpError(
+      400, 
+      'El parámetro direction es inválido. Debe ser "caregivers" o "patients".', 
+      'invalid_direction_parameter'
+    );
+  }
+
+  const relationships = await CaregiverRelationship.findAcceptedByDirection(userId, direction);
+
+  return relationships;
+}
+
+
+
 module.exports = {
   createInvitationToken,
   redeemInvitationToken,
   requestRelationship,
   respondToRelationship,
   updateRelationshipActiveStatus,
+  getRelationshipsList
 };
