@@ -157,6 +157,22 @@ async function findAcceptedByDirection(userId, direction, client = db) {
   }));
 }
 
+/**
+ * Función que marca una relación como eliminada
+ * @author agblandin@unah.hn
+ * @version 0.1.0
+ * @since 2026/07/07
+ * @date 2026/07/07
+ */
+async function markAsDeleted(id, client = db) {
+  const result = await client.query(
+    `UPDATE auth.caregiver_relationships
+     SET status = 'eliminada', active = FALSE, last_status_change = NOW()
+     WHERE id = $1 RETURNING *`,
+    [id],
+  );
+  return mapCaregiverRelationship(result.rows[0]);
+}
 
 module.exports = {
   create,
@@ -165,5 +181,8 @@ module.exports = {
   mapCaregiverRelationship,
   updateActiveStatus,
   updateResponse,
-  findAcceptedByDirection
+  findAcceptedByDirection,
+  markAsDeleted
 };
+
+

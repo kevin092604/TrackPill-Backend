@@ -8,6 +8,7 @@ const router = express.Router();
 //router.use(authMiddleware);
 
 router.get('/', relationshipController.getRelationships);
+router.delete('/:id', relationshipController.deleteRelationship);
 
 router.post('/request', relationshipController.requestRelationship);
 router.post('/invite-token', relationshipController.createInvitationToken);

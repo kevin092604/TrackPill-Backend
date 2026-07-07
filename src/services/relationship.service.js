@@ -334,7 +334,45 @@ async function getRelationshipsList(userId, direction) {
   return relationships;
 }
 
+/**
+ * Función que elimina  una relación entre usuarios.
+ * @author agblandin@unah.hn
+ * @version 0.1.0
+ * @since 2026/07/07
+ * @date 2026/07/07
+ * @param {string} relationshipId ID del vínculo a eliminar.
+ * @param {object} currentUser Usuario actual autenticado.
+ * @returns {Promise<Object>} Resultado de la operación.
+ */
+async function deleteRelationship(relationshipId, currentUser) {
+  
+  const id = relationshipId;
 
+  const relationship = await CaregiverRelationship.findById(id);
+
+  if (!relationship) {
+    throw createHttpError(404, 'Vínculo no encontrado.', 'relationship_not_found');
+  }
+
+  const isCaregiver = String(currentUser.id) === String(relationship.caregiverId);
+  const isPatient = String(currentUser.id) === String(relationship.patientId);
+
+  if (!isCaregiver && !isPatient) {
+    throw createHttpError(403, 'No tienes permiso para eliminar este vínculo.', 'relationship_access_forbidden');
+  }
+
+  if (relationship.status === 'eliminada') {
+    throw createHttpError(400, 'Este vínculo ya ha sido eliminado previamente.', 'relationship_already_deleted');
+  }
+
+  const deletedRelationship = await CaregiverRelationship.markAsDeleted(id);
+
+  return {
+    action: 'relationship_deleted',
+    relationship: deletedRelationship,
+    status: 'success',
+  };
+}
 
 module.exports = {
   createInvitationToken,
@@ -342,5 +380,6 @@ module.exports = {
   requestRelationship,
   respondToRelationship,
   updateRelationshipActiveStatus,
-  getRelationshipsList
+  getRelationshipsList,
+  deleteRelationship
 };

@@ -91,6 +91,36 @@ async function getRelationships(req, res, next) {
   }
 }
 
+/**
+ * Controlador para eliminar una relación
+ * @author agblandin@unah.hn
+ * @version 0.1.0
+ * @since 2026/07/07
+ * @date 2026/07/07
+ * @param {Object} req - Request object
+ * @param {Object} res - Response object
+ * @param {Function} next - Next middleware function
+ */
+async function deleteRelationship(req, res, next) {
+  try {
+    const relationshipId = req.params.id;
+    const currentUser = req?.user;
+
+    if (!currentUser || !currentUser.id) {
+      throw createHttpError(401, 'Usuario no autenticado.', 'unauthorized');
+    }
+
+    const result = await relationshipService.deleteRelationship(relationshipId, currentUser);
+
+    res.status(200).json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   createInvitationToken,
   redeemInvitationToken,
@@ -98,4 +128,5 @@ module.exports = {
   respondToRelationship,
   updateRelationshipActiveStatus,
   getRelationships,
+  deleteRelationship
 };
