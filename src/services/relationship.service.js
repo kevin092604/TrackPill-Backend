@@ -99,6 +99,52 @@ async function respondToRelationship(relationshipId, payload, currentUser) {
   };
 }
 
+/**
+ * Función que permite actualizar el estado de una relación.
+ * @author Jesús Zepeda
+ * @version 0.1.0
+ * @since 2026/07/06
+ * @date 2026/07/06
+ * @param {string} relationshipId ID del vínculo.
+ * @param {object} payload Payload con el estado de la relación.
+ * @param {boolean} payload.active Estado de la relación.
+ * @param {string} payload.relationshipLabel Etiqueta de la relación.
+ * @param {object} currentUser Usuario actual.
+ * @returns {object} Objeto con la relación actualizada.
+ */
+async function updateRelationshipActiveStatus(relationshipId, payload, currentUser) {
+  const id = normalizeId(relationshipId, 'relationship_id');
+
+  if (typeof payload?.active !== 'boolean') {
+    throw createHttpError(400, 'El campo active debe ser un valor booleano.', 'invalid_active_status');
+  }
+
+  const relationship = await CaregiverRelationship.findById(id);
+
+  if (!relationship) {
+    throw createHttpError(404, 'Solicitud de relación no encontrada.', 'relationship_not_found');
+  }
+
+  const isCaregiver = String(currentUser.id) === String(relationship.caregiverId);
+  const isPatient = String(currentUser.id) === String(relationship.patientId);
+
+  if (!isCaregiver && !isPatient) {
+    throw createHttpError(403, 'No tienes permiso para modificar este vínculo.', 'relationship_access_forbidden');
+  }
+
+  if (relationship.status !== 'aceptada') {
+    throw createHttpError(409, 'Solo se pueden pausar o reactivar relaciones aceptadas.', 'relationship_not_accepted');
+  }
+
+  const updatedRelationship = await CaregiverRelationship.updateActiveStatus(id, payload.active);
+
+  return {
+    action: payload.active ? 'relationship_reactivated' : 'relationship_paused',
+    relationship: updatedRelationship,
+    status: 'success',
+  }
+}
+
 async function createPendingRelationship(relationship, client = db) {
   const existingRelationship = await CaregiverRelationship.findOpenBetween(
     relationship.caregiverId,
@@ -269,4 +315,5 @@ module.exports = {
   redeemInvitationToken,
   requestRelationship,
   respondToRelationship,
+  updateRelationshipActiveStatus,
 };
