@@ -4,58 +4,55 @@ const { pool } = require('../config/db');
 /**
  * JOB que se encarga de generar las dosis para el diarias (24 horas antes del momento de ejecución)
  * @author Jesús Zepeda
- * @version 0.1.0
+ * @version 0.2.0
  * @since 2026/07/03
- * @date 2026/07/03
+ * @date 2026/07/12
  */
 async function generateDailyDoses() {
 
     console.info('[JOB] Iniciando proceso de generación diaria de dosis...');
 
     try {
-        //Obtener todos los horarios de dosis activos de medicamentos activos
-        //Nota: Esta consulta asume una estructura estándar en la base de datos
-        //Está sujeta a cambios pero lo que se pretende es tener una lista de horarios de dosis que deben ser generados
-
-        const activeSchedulesResult = await pool.query(`
-            SELECT
-                ds.id AS dose_schedule_id,
-                ds.hour AS schedule_hour
-            FROM dose_schedules ds
-            JOIN medications m ON ds.medication_id = m.id
-            WHERE ds.active = TRUE AND m.active = TRUE;  
-        `);
-
-        const schedules = activeSchedulesResult.rows;
-
-        console.info(`[JOB] Se encontraron ${schedules.length} horarios de dosis activos.`);
-
-        if (schedules.length === 0) {
-        
-            console.info('[JOB] No hay dosis que generar. Finalizando.');
-            return;
-        }
-
-        //Calcular la fecha del día siguiente en formato YYYY-MM-DD
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
         const tomorrowDateString = tomorrow.toISOString().split('T')[0];
 
+        const daysOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const tomorrowDayName = daysOfWeek[tomorrow.getDay()];
+
+        const activeMedicinesResult = await pool.query(
+            `SELECT
+                m.id AS medicine_id,
+                m.start_time AS schedule_hour
+             FROM medicine_stock.medicines m
+             JOIN medicine_stock.schedules s ON m.schedule_id = s.id
+             WHERE m.active = TRUE
+                AND s.${tomorrowDayName} = TRUE
+                AND (s.start_date IS NULL OR s.start_date <= $1)
+                AND (s.end_date IS NULL OR s.end_date >= $1)`,
+            [tomorrowDateString]
+        );
+
+        const medicines = activeMedicinesResult.rows;
+        console.info(`[JOB] Se encontraron ${medicines.length} medicamentos activos para mañana (${tomorrowDayName}).`);
+
+        if (medicines.length === 0) {
+            console.info(`[JOB] No hay dosis que generar para mañana. Finalizando.`);
+            return;
+        }
+
         let generatedCount = 0;
 
-        //Generar la dosis para cada horario de toma correspondiente a mañana
-        for (const schedule of schedules) {
-            //Combinar la fecha de "mañana" con la hora programada del medicamento
-            const scheduleTime = `${tomorrowDateString}T${schedule.schedule_hour}`;
+        for (const med of medicines) {
+            const scheduleTime = `${tomorrowDateString}T${med.schedule_hour}`;
 
-            //Insertar la dosis en estado 'pending'
-            //Usar ON CONFLICT para evitar duplicar dosis si el script se ejecuta dos veces por error
-            const insertResult = await pool.query(`
-                INSERT INTO doses (dose_schedule_id, schedule_time, status)
-                VALUES ($1, $2, 'pending')
-                ON CONFLICT (dose_schedule_id, schedule_time) DO NOTHING
-                RETURNING id;
-            `, [schedule.dose_schedule_id, scheduleTime]);
+            const insertResult = await pool.query(
+                `INSERT INTO medicine_stock.medication_logs (medicine_id, scheduled_time, status_id)
+                 VALUES ($1, $2, 1)
+                 ON CONFLICT (medicine_id, scheduled_time) DO NOTHING
+                 RETURNING id;`,
+                [med.medicine_id, scheduleTime]
+            );
 
             if (insertResult.rows.length > 0) {
                 generatedCount++;
@@ -63,15 +60,18 @@ async function generateDailyDoses() {
         }
 
         console.info(`[JOB] Proceso terminado con éxito. Dosis generadas: ${generatedCount}`);
-    
     } catch (error) {
-        
         console.error('[JOB] Error crítico durante la generación diaria de dosis:', error);
     } finally {
-        //Cerrar la conexión a la base de datos
         await pool.end();
-        console.info('[JOB] Conexión a la base de datos cerrada.');
+        console.info('[JOB] Conexión de base de datos cerrada.');
     }
 }
 
-generateDailyDoses();
+if (require.main === module) {
+    generateDailyDoses()
+        .then(() => process.exit(0))
+        .catch(() => process.exit(1));
+}
+
+module.exports = generateDailyDoses;

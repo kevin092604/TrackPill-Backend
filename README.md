@@ -10,11 +10,23 @@ src/
 |   |-- db.js
 |   `-- schema.sql
 |-- controllers/
-|   `-- auth.controller.js
+|   |-- auth.controller.js
+|   |-- caregiver.controller.js
+|   |-- dashboard.controller.js
+|   |-- notification.controller.js
+|   `-- relationship.controller.js
+|-- jobs/
+|   |-- check-overdue-doses.js
+|   `-- generate-daily-doses.js
 |-- middlewares/
-|   `-- auth.middleware.js
+|   |-- auth.middleware.js
+|   |-- caregiver-patient.middleware.js
+|   `-- loginLimiter.middleware.js
 |-- models/
+|   |-- caregiver-relationship.model.js
 |   |-- email-credential.model.js
+|   |-- invitation-token.model.js
+|   |-- notification.model.js
 |   |-- pending-social-registration.model.js
 |   |-- provider-type.model.js
 |   |-- session.model.js
@@ -22,16 +34,24 @@ src/
 |   |-- user.model.js
 |   `-- verification-code.model.js
 |-- routes/
-|   `-- auth.routes.js
+|   |-- auth.routes.js
+|   |-- caregiver.routes.js
+|   |-- dashboard.routes.js
+|   |-- notification.routers.js
+|   `-- relationship.routes.js
 |-- services/
 |   |-- auth.service.js
+|   |-- dashboard.service.js
+|   |-- email.service.js
+|   |-- notification.service.js
+|   |-- relationship.service.js
 |   `-- social-provider.service.js
 |-- utils/
 |   `-- helpers.js
 `-- app.js
 ```
 
-## Configuracion
+## Configuración
 
 ```bash
 npm install
@@ -611,12 +631,26 @@ Retorna las notificaciones del usuario autenticado, ordenadas por fecha descende
 
 ### Generación diaria de dosis
 
-El sistema cuenta con un script independiente de Node.js diseñado para ejecutarse una vez al día a través de tareas programadas de la infraestructura (como Linux `crontab`, Heroku Scheduler, AWS EventBridge, etc.). Su objetivo es pre-generar las dosis del día siguiente en la tabla `doses` en base a los horarios activos (`dose_schedules`) de cada medicamento activo.
+El sistema cuenta con un script independiente de Node.js diseñado para ejecutarse una vez al día a través de tareas programadas de la infraestructura (como Linux `crontab`, Heroku Scheduler, AWS EventBridge, etc.). Su objetivo es pre-generar las dosis del día siguiente en la tabla `medicine_stock.medication_logs` en base a la planificación activa de los medicamentos de cada paciente (`medicine_stock.medicines` y `medicine_stock.schedules`).
 
 Para ejecutar este job manualmente:
 
 ```bash
 node src/jobs/generate-daily-doses.js
+```
+
+### Detección periódica de dosis atrasadas y omitidas
+
+Este script independiente se ejecuta de forma periódica (por ejemplo, cada minuto) para evaluar las dosis pendientes de los pacientes.
+
+- Transiciona a `Retrasada` si han transcurrido más de **10 minutos** desde su hora programada sin registrar toma.
+- Transiciona a `Omitida` si han transcurrido más de **30 minutos**.
+  En cada cambio de estado, busca a todos los cuidadores activos del paciente y genera las notificaciones de tipo `dosis_retrasada` o `dosis_omitida` correspondientes.
+
+Para ejecutar este job manualmente:
+
+```bash
+node src/jobs/check-overdue-doses.js
 ```
 
 ## Correo Gmail

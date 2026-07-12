@@ -163,3 +163,97 @@ CREATE INDEX IF NOT EXISTS invitation_tokens_active_idx
 INSERT INTO auth.provider_types (name)
 VALUES ('google'), ('facebook'), ('apple')
 ON CONFLICT (name) DO NOTHING;
+
+CREATE SCHEMA IF NOT EXISTS medicine_stock;
+
+CREATE TABLE IF NOT EXISTS medicine_stock.measurement_units (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL UNIQUE,
+  code VARCHAR (20) NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS medicine_stock.pharmaceutical_forms (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL UNIQUE,
+  measurement_unit_id INT NOT NULL REFERENCES medicine_stock.measurement_units(id) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS medicine_stock.time_units (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL UNIQUE,
+  code VARCHAR(20) NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS medicine_stock.movement_types (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL UNIQUE,
+  factor INT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS medicine_stock.schedules (
+  id SERIAL PRIMARY KEY,
+  start_date DATE,
+  end_date DATE,
+  monday BOOLEAN NOT NULL DEFAULT FALSE,
+  tuesday BOOLEAN NOT NULL DEFAULT FALSE,
+  wednesday BOOLEAN NOT NULL DEFAULT FALSE,
+  thursday BOOLEAN NOT NULL DEFAULT FALSE,
+  friday BOOLEAN NOT NULL DEFAULT FALSE,
+  saturday BOOLEAN NOT NULL DEFAULT FALSE,
+  sunday BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+CREATE TABLE IF NOT EXISTS medicine_stock.medicines (
+  id BIGSERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  image VARCHAR(255),
+  pharmaceutical_form_id INT NOT NULL REFERENCES medicine_stock.pharmaceutical_forms(id) ON DELETE RESTRICT,
+  current_stock NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+  dose NUMERIC(10, 2) NOT NULL DEFAULT 1.00,
+  frequency INT NOT NULL,
+  time_unit_id INT NOT NULL REFERENCES medicine_stock.time_units(id) ON DELETE RESTRICT,
+  start_time TIME NOT NULL,
+  schedule_id INT NOT NULL REFERENCES medicine_stock.schedules(id) ON DELETE RESTRICT,
+  description TEXT,
+  user_id BIGINT NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS medicine_stock.stock_movements (
+  id SERIAL PRIMARY KEY,
+  medicine_id BIGINT NOT NULL REFERENCES medicine_stock.medicines(id) ON DELETE CASCADE,
+  amount NUMERIC(10, 2) NOT NULL,
+  movement_type_id INT NOT NULL REFERENCES medicine_stock.movement_types(id) ON DELETE RESTRICT,
+  movement_date TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS medicine_stock.dose_status (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(50) NOT NULL UNIQUE
+);
+
+INSERT INTO medicine_stock.dose_status(id, name)
+VALUES (1, 'Pendiente'), (2, 'Tomada'), (3, 'Retrasada'), (4, 'Omitida')
+ON CONFLICT (name) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS medicine_stock.medication_logs (
+  id BIGSERIAL PRIMARY KEY,
+  medicine_id BIGINT NOT NULL REFERENCES medicine_stock.medicines(id) ON DELETE CASCADE,
+  scheduled_time TIMESTAMPTZ NOT NULL,
+  taken_time TIMESTAMPTZ,
+  status_id INT NOT NULL REFERENCES medicine_stock.dose_status(id) ON DELETE RESTRICT,
+  CONSTRAINT medication_log_unique_schedule UNIQUE (medicine_id, scheduled_time)
+);
+
+CREATE TABLE IF NOT EXISTS medicine_stock.notifications (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  type VARCHAR(50) NOT NULL,
+  message TEXT NOT NULL,
+  is_read BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  patient_id BIGINT REFERENCES auth.users(id) ON DELETE CASCADE,
+  medicine_id BIGINT REFERENCES medicine_stock.medicines(id) ON DELETE CASCADE,
+  dose_id BIGINT REFERENCES medicine_stock.medication_logs(id) ON DELETE CASCADE,
+  -- TODO: Agregar un check para verificar los tipos de notificaciones
+  CONSTRAINT notifications_users_check CHECK (user_id <> patient_id) -- verifica que no sean la misma persona
+);
