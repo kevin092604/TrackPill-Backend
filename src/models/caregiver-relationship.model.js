@@ -174,6 +174,32 @@ async function markAsDeleted(id, client = db) {
   return mapCaregiverRelationship(result.rows[0]);
 }
 
+/**
+ * Función que encuentra una relación activa y aceptada entre un cuidador y un paciente
+ * @author Jesús Zepeda
+ * @version 0.1.0
+ * @since 2026/07/11
+ * @date 2026/07/11
+ * @param {string} caregiverId ID del cuidador
+ * @param {string} patientId ID del paciente
+ * @param {object} [client=db] Cliente de la base de datos
+ * @returns {Promise<Object>} Relación activa y aceptada
+ */
+async function findActiveRelation(caregiverId, patientId, client = db) {
+  const result = await client.query(
+    `SELECT * FROM auth.caregiver_relationships
+     WHERE caregiver_id = $1
+     AND patient_id = $2
+     AND status = 'aceptada'
+     AND active = TRUE
+    LIMIT 1
+    `,
+    [caregiverId, patientId]
+  );
+
+  return mapCaregiverRelationship(result.rows[0]);
+}
+
 module.exports = {
   create,
   findById,
@@ -182,7 +208,8 @@ module.exports = {
   updateActiveStatus,
   updateResponse,
   findAcceptedByDirection,
-  markAsDeleted
+  markAsDeleted,
+  findActiveRelation,
 };
 
 

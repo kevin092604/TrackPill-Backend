@@ -344,6 +344,140 @@ Valida las reglas de seguridad, actualiza el hash y revoca las sesiones activas.
 }
 ```
 
+## Endpoint de obtener el círculo de cuidado
+
+`GET /relationships?direction=<caregivers|patients>`
+
+Obtiene la lista de relaciones aceptadas. La dirección puede ser `caregivers`
+(para cuidadores que tiene el usuario) o `patients` (para pacientes asignados a
+este usuario si es cuidador).
+
+### Ejemplo de Respuesta:
+
+```json
+{
+  "success": true,
+  "relationships": [
+    {
+      "id": "1",
+      "caregiverId": "2",
+      "patientId": "1",
+      "relationshipLabel": "Hijo",
+      "active": true,
+      "status": "aceptada",
+      "user": {
+        "id": "2",
+        "firstName": "Kevin",
+        "lastName": "Lopez",
+        "email": "kevin@example.com"
+      }
+    }
+  ]
+}
+```
+
+
+## Endpoint de solicitar relación
+
+`POST /relationships/request`
+
+Envía una solicitud de relación a otro usuario.
+
+### Ejemplo de Petición:
+
+```json
+{
+  "initiatedAs": "caregiver",
+  "email": "paciente@example.com",
+  "relationshipLabel": "Papá"
+}
+```
+
+## Endpoint de crear token de invitación
+
+`POST /relationships/invite-token`
+
+Genera un token temporal para ser escaneado por QR o enviado por enlace para iniciar una relación de cuidado.
+
+### Ejemplo de Petición:
+
+```json
+{
+  "initiatedAs": "caregiver",
+  "invitationChannel": "qr"
+}
+```
+
+## Endpoint de canjear token de invitación
+
+`POST /relationships/redeem-token`
+
+Canjea un token de invitación activo para crear el vínculo.
+
+### Ejemplo de Petición:
+
+```json
+{
+  "token": "qr.invitation-token-uuid",
+  "relationshipLabel": "Abuelo"
+}
+```
+
+## Endpoint de responder a una solicitud de relación
+
+`POST /relationships/:id/respond`
+
+Acepta o rechaza una solicitud de relación pendiente.
+
+### Ejemplo de Petición:
+
+```json
+{
+  "status": "aceptada"
+}
+```
+
+## Endpoint de pausar o reactivar vínculo de cuidado
+
+`PATCH /relationships/:id/active`
+
+Pausa o reactiva temporalmente una relación activa.
+
+### Ejemplo de Petición:
+
+```json
+{
+  "active": false
+}
+```
+
+## Endpoint de eliminar relación
+
+`DELETE /relationships/:id`
+
+Marca la relación como eliminada de forma definitiva.
+
+---
+
+## Endpoint de obtener calendario del paciente
+
+`GET /caregiver/patients/:patientId/calendar?month=YYYY-MM`
+
+Obtiene el listado de tomas y calendario del mes solicitado de un paciente específico asignado a este cuidador. Valida de forma estricta que exista una relación aceptada y activa (`active = true`) entre el cuidador y el paciente.
+
+### Ejemplo de Respuesta:
+
+```json
+{
+  "success": true,
+  "data": {
+    "patientId": 1,
+    "month": "2026-07",
+    "events": []
+  }
+}
+```
+
 ## Correo Gmail
 
 Usa una contrasena de aplicacion de Google, no la contrasena normal de la
