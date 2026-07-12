@@ -20,4 +20,9 @@ router.get(
     caregiverController.getPatientDoses
 );
 
+router.get('/patients/:patientId/summary',
+    checkCaregiverPatientRelationship,
+    caregiverController.getPatientSummary
+);
+
 module.exports = router;

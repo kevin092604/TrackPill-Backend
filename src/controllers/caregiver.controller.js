@@ -1,4 +1,5 @@
 const { createHttpError } = require('../utils/helpers');
+const caregiverService = require('../services/caregiver.service');
 
 /**
  * Función que permite al cuidador autenticado obtener el calendario del paciente al que está asignado
@@ -82,7 +83,39 @@ async function getPatientDoses(req, res, next) {
     }
 }
 
+/**
+ * Controlador para obtener el resumen del paciente
+ * @author agblandin@unah.hn
+ * @version 0.1.0
+ * @since 2026/07/12
+ * @date 2026/07/12
+ */
+async function getPatientSummary(req, res, next) {
+  try {
+    const caregiverId = req?.user?.id;
+    const patientId = req.params.patientId;
+
+    if (!caregiverId) {
+      throw createHttpError(401, 'Usuario no autenticado.', 'unauthorized');
+    }
+
+    if (!patientId) {
+       throw createHttpError(400, 'El ID del paciente es requerido.', 'missing_patient_id');
+    }
+
+    const data = await caregiverService.getPatientSummary(caregiverId, patientId);
+
+    res.status(200).json({
+      success: true,
+      data
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
     getPatientCalendar,
     getPatientDoses,
+    getPatientSummary
 };
