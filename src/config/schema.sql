@@ -13,11 +13,15 @@ CREATE TABLE IF NOT EXISTS auth.users (
   phone VARCHAR(40),
   birth_date DATE,
   gender VARCHAR(40),
-  address VARCHAR(255)
+  address VARCHAR(255),
+  photo_url TEXT
 );
 
 ALTER TABLE auth.users
   ADD COLUMN IF NOT EXISTS address VARCHAR(255);
+
+ALTER TABLE auth.users
+  ADD COLUMN IF NOT EXISTS photo_url TEXT;
 
 ALTER TABLE auth.users
   ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE;
