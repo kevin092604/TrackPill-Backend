@@ -497,6 +497,82 @@ Obtiene el detalle de dosis y tomas diarias para un paciente específico asignad
   }
 }
 ```
+## Endpoint resumen del paciente para el cuidador
+
+`GET /caregiver/patients/:patientId/summary`
+
+Obtiene el resumen médico (próxima dosis, actividad reciente y cumplimiento semanal) de un paciente asignado a este cuidador. Valida de forma estricta que exista una relación aceptada y activa (`active = true`) entre el cuidador y el paciente.
+
+### Ejemplo de Respuesta:
+
+```json
+{
+  "success": true,
+  "data": {
+    "patientId": 1,
+    "relationshipLabel": "Papá",
+    "nextDose": {
+      "medicationName": "Amoxicilina 500mg",
+      "scheduledTime": "14:00",
+      "status": "pending"
+    },
+    "recentActivity": [
+      {
+        "medicationName": "Losartán 50mg",
+        "takenAt": "2026-07-12T08:05:00Z",
+        "status": "taken"
+      }
+    ],
+    "weeklyCompliance": {
+      "percentage": 85,
+      "dosesTaken": 12,
+      "totalDoses": 14
+    }
+  }
+}
+```
+## Endpoint de medicamentos del paciente para el cuidador
+
+`GET /caregiver/patients/:patientId/medicines`
+
+Obtiene el listado de medicamentos activos de un paciente asignado a este cuidador, adaptado para la vista de listado de medicamentos. Incluye la cantidad y unidad de la dosis, texto de frecuencia, hora de la próxima dosis y el inventario disponible.
+
+### Ejemplo de Respuesta:
+
+```json
+{
+  "success": true,
+  "data": {
+    "patientId": 1,
+    "patientName": "Angel",
+    "totalActive": 2,
+    "medicines": [
+      {
+        "id": 101,
+        "name": "Losartán 50mg",
+        "doseQuantity": 1,
+        "doseUnit": "Tableta",
+        "frequencyText": "cada 24 horas",
+        "nextDoseTime": "7:00 a.m.",
+        "remainingStock": 18,
+        "stockUnit": "tabletas",
+        "status": "active"
+      },
+      {
+        "id": 102,
+        "name": "Omeprazol 20mg",
+        "doseQuantity": 1,
+        "doseUnit": "Cápsula",
+        "frequencyText": "cada 24 horas",
+        "nextDoseTime": "10:00 a.m.",
+        "remainingStock": 10,
+        "stockUnit": "tabletas",
+        "status": "active"
+      }
+    ]
+  }
+}
+```
 
 ## Correo Gmail
 

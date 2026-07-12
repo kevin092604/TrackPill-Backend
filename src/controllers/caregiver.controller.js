@@ -114,8 +114,34 @@ async function getPatientSummary(req, res, next) {
   }
 }
 
+/**
+ * Controlador para obtener la lista de medicamentos del paciente
+ * @author agblandin@unah.hn
+ * @version 0.1.1
+ * @since 2026/07/12
+ * @date 2026/07/12
+ * @param {Object} req Objeto de petición
+ * @param {Object} res Objeto de respuesta
+ * @param {Function} next Función de middleware
+ */
+async function getPatientMedicines(req, res, next) {
+    try {
+        const { patientId } = req.params;
+        
+        const data = await caregiverService.getPatientMedicines(patientId);
+
+        res.status(200).json({
+            success: true,
+            data
+        });
+    } catch (error) {
+        next(error);
+    }
+}
+
 module.exports = {
     getPatientCalendar,
     getPatientDoses,
-    getPatientSummary
+    getPatientSummary,
+    getPatientMedicines
 };

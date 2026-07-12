@@ -44,6 +44,49 @@ async function getPatientSummary(caregiverId, patientId) {
   return summary;
 }
 
+/**
+ * Obtiene la lista de medicamentos activos de un paciente
+ * @author agblandin@unah.hn
+ * @version 0.1.1
+ * @since 2026/07/12
+ * @param {string|number} patientId ID del paciente a consultar
+ * @returns {Promise<Object>} Objeto con los datos del paciente y sus medicamentos
+ */
+async function getPatientMedicines(patientId) {
+  // mock data
+  const medicines = [
+    {
+      id: 101,
+      name: "Losartán 50mg",
+      doseQuantity: 1,
+      doseUnit: "Tableta",
+      frequencyText: "cada 24 horas",
+      nextDoseTime: "7:00 a.m.",
+      remainingStock: 18,
+      stockUnit: "tabletas",
+      status: "active"
+    },
+    {
+      id: 102,
+      name: "Omeprazol 20mg",
+      doseQuantity: 1,
+      doseUnit: "Cápsula",
+      frequencyText: "cada 24 horas",
+      nextDoseTime: "10:00 a.m.",
+      remainingStock: 10,
+      stockUnit: "tabletas",
+      status: "active"
+    }
+  ];
+  return {
+    patientId: Number(patientId),
+    patientName: "Angel",
+    totalActive: medicines.length,
+    medicines
+  };
+}
+
 module.exports = {
-  getPatientSummary
+  getPatientSummary,
+  getPatientMedicines
 };
