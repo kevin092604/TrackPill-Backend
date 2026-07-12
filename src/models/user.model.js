@@ -45,6 +45,7 @@ async function findByPhone(phone, client = db) {
   return mapUser(result.rows[0]);
 }
 
+
 async function findById(id, client = db) {
   const result = await client.query(
     'SELECT * FROM auth.users WHERE id = $1 LIMIT 1',
