@@ -14,4 +14,10 @@ router.get(
     caregiverController.getPatientCalendar
 );
 
+router.get(
+    '/patients/:patientId/doses',
+    checkCaregiverPatientRelationship,
+    caregiverController.getPatientDoses
+);
+
 module.exports = router;

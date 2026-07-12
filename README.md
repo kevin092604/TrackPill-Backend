@@ -478,6 +478,26 @@ Obtiene el listado de tomas y calendario del mes solicitado de un paciente espec
 }
 ```
 
+
+## Endpoint de obtener detalle diario de dosis
+
+`GET /caregiver/patients/:patientId/doses?date=YYYY-MM-DD`
+
+Obtiene el detalle de dosis y tomas diarias para un paciente específico asignado a este cuidador en una fecha solicitada. Valida de forma estricta que exista una relación aceptada y activa (`active = true`) entre el cuidador y el paciente.
+
+### Ejemplo de Respuesta:
+
+```json
+{
+  "success": true,
+  "data": {
+    "patientId": 1,
+    "date": "2026-07-12",
+    "doses": []
+  }
+}
+```
+
 ## Correo Gmail
 
 Usa una contrasena de aplicacion de Google, no la contrasena normal de la

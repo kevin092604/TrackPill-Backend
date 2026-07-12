@@ -42,6 +42,47 @@ async function getPatientCalendar(req, res, next) {
     }
 }
 
+/**
+ * Función que permite obtener el detalle diario de dosis y tomas de un paciente.
+ * @author Jesús Zepeda
+ * @version 0.1.0
+ * @since 2026/07/12
+ * @date 2026/07/12
+ * @param {Object} req Objeto de petición
+ * @param {Object} res Objeto de respuesta
+ * @param {Function} next Función de middleware
+ * @returns {void}
+ */
+async function getPatientDoses(req, res, next) {
+    try {
+        const { date } = req.query;
+        const { patientId } = req.params;
+
+        if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+            throw createHttpError(
+                400,
+                'El formato del parámetro date debe ser YYYY-MM-DD.',
+                'invalid_date_format'
+            );
+        }
+
+        //Mock de respuesta para la lista de dosis diaria
+        res.status(200).json(
+            {
+                success: true,
+                data: {
+                    patientId: Number(patientId),
+                    date: date || new Date().toISOString().slice(0,10), //Fecha actual si no se proporciona
+                    doses: []
+                }
+            }
+        );
+    } catch (error) {
+        next(error);
+    }
+}
+
 module.exports = {
     getPatientCalendar,
+    getPatientDoses,
 };
