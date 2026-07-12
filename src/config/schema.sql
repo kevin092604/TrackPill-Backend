@@ -104,3 +104,39 @@ CREATE INDEX IF NOT EXISTS verification_codes_user_type_used_idx
 INSERT INTO auth.provider_types (name)
 VALUES ('google'), ('facebook'), ('apple')
 ON CONFLICT (name) DO NOTHING;
+
+CREATE SCHEMA IF NOT EXISTS medication;
+
+CREATE TABLE IF NOT EXISTS medication.medications (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name VARCHAR(120) NOT NULL,
+  pharmaceutical_form VARCHAR(60) NOT NULL,
+  dose_amount NUMERIC(10, 2) NOT NULL,
+  dose_unit VARCHAR(20) NOT NULL,
+  photo_url TEXT,
+  frequency_type VARCHAR(20) NOT NULL,
+  current_inventory INTEGER NOT NULL DEFAULT 0,
+  low_stock_alert_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  low_stock_threshold INTEGER,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  creation_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_update TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT medications_frequency_type_check
+    CHECK (frequency_type IN ('8h', '12h', '24h', 'custom')),
+  CONSTRAINT medications_dose_amount_check CHECK (dose_amount > 0),
+  CONSTRAINT medications_current_inventory_check CHECK (current_inventory >= 0)
+);
+
+CREATE INDEX IF NOT EXISTS medications_user_active_idx
+  ON medication.medications (user_id, active);
+
+CREATE TABLE IF NOT EXISTS medication.dose_schedules (
+  id BIGSERIAL PRIMARY KEY,
+  medication_id BIGINT NOT NULL REFERENCES medication.medications(id) ON DELETE CASCADE,
+  scheduled_time TIME NOT NULL,
+  creation_date TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS dose_schedules_medication_idx
+  ON medication.dose_schedules (medication_id);
