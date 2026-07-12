@@ -12,8 +12,12 @@ CREATE TABLE IF NOT EXISTS auth.users (
   email_verified_date TIMESTAMPTZ,
   phone VARCHAR(40),
   birth_date DATE,
-  gender VARCHAR(40)
+  gender VARCHAR(40),
+  address VARCHAR(255)
 );
+
+ALTER TABLE auth.users
+  ADD COLUMN IF NOT EXISTS address VARCHAR(255);
 
 ALTER TABLE auth.users
   ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE;

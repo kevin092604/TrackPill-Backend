@@ -7,6 +7,7 @@ function mapUser(row) {
 
   return {
     active: row.active,
+    address: row.address,
     birthDate: row.birth_date,
     creationDate: row.creation_date,
     email: row.email,
