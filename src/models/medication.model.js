@@ -60,49 +60,7 @@ async function create(medication, client = db) {
   return mapMedication(result.rows[0]);
 }
 
-async function updatePhotoUrl(medicationId, photoUrl, client = db) {
-  const result = await client.query(
-    `
-      UPDATE medication.medications
-      SET photo_url = $2,
-          last_update = NOW()
-      WHERE id = $1
-      RETURNING *
-    `,
-    [medicationId, photoUrl],
-  );
-
-  return mapMedication(result.rows[0]);
-}
-
-async function findActiveByUserId(userId, client = db) {
-  const result = await client.query(
-    `
-      SELECT *
-      FROM medication.medications
-      WHERE user_id = $1
-        AND active = TRUE
-      ORDER BY creation_date DESC
-    `,
-    [userId],
-  );
-
-  return result.rows.map(mapMedication);
-}
-
-async function findById(id, client = db) {
-  const result = await client.query(
-    'SELECT * FROM medication.medications WHERE id = $1 LIMIT 1',
-    [id],
-  );
-
-  return mapMedication(result.rows[0]);
-}
-
 module.exports = {
   create,
-  findActiveByUserId,
-  findById,
   mapMedication,
-  updatePhotoUrl,
 };

@@ -2,7 +2,7 @@ const medicationService = require('../services/medication.service');
 
 async function registerMedication(req, res, next) {
   try {
-    const result = await medicationService.registerMedication(req.user.id, req.body, req.file);
+    const result = await medicationService.registerMedication(req.user.id, req.body);
 
     res.status(201).json({
       success: true,

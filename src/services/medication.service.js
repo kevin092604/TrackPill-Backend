@@ -4,9 +4,7 @@ const db = require('../config/db');
 const DoseSchedule = require('../models/dose-schedule.model');
 const Medication = require('../models/medication.model');
 const { createHttpError } = require('../utils/helpers');
-const storageService = require('./storage.service');
 
-const ALLOWED_PHOTO_MIME_TYPES = new Set(['image/bmp', 'image/jpeg', 'image/png']);
 const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 const registerMedicationSchema = z.object({
@@ -30,40 +28,11 @@ const registerMedicationSchema = z.object({
   { message: 'Indica a partir de cuantas dosis avisar.', path: ['lowStockThreshold'] },
 );
 
-function parseSchedules(rawSchedules) {
-  if (Array.isArray(rawSchedules)) {
-    return rawSchedules;
-  }
-
-  try {
-    const parsed = JSON.parse(rawSchedules || '[]');
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (_error) {
-    throw createHttpError(422, 'Los horarios de dosis son invalidos.', 'validation_error');
-  }
-}
-
-function parseBoolean(value) {
-  return value === true || value === 'true';
-}
-
-async function registerMedication(userId, payload, file) {
-  const result = registerMedicationSchema.safeParse({
-    ...payload,
-    lowStockAlertEnabled: parseBoolean(payload.lowStockAlertEnabled),
-    schedules: parseSchedules(payload.schedules),
-  });
+async function registerMedication(userId, payload) {
+  const result = registerMedicationSchema.safeParse(payload);
 
   if (!result.success) {
     throw createHttpError(422, result.error.issues[0].message, 'validation_error');
-  }
-
-  if (file && !ALLOWED_PHOTO_MIME_TYPES.has(file.mimetype)) {
-    throw createHttpError(
-      422,
-      'Formato no soportado. Usa .png, .jpeg, .jpg o .bmp.',
-      'invalid_photo_format',
-    );
   }
 
   const data = result.data;
@@ -89,14 +58,7 @@ async function registerMedication(userId, payload, file) {
     return createdMedication;
   });
 
-  if (!file) {
-    return { medication };
-  }
-
-  const photoUrl = await storageService.uploadPublicFile(`medication-photos/${userId}`, file);
-  const updatedMedication = await Medication.updatePhotoUrl(medication.id, photoUrl);
-
-  return { medication: updatedMedication };
+  return { medication };
 }
 
 module.exports = {
