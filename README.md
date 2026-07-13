@@ -10,11 +10,23 @@ src/
 |   |-- db.js
 |   `-- schema.sql
 |-- controllers/
-|   `-- auth.controller.js
+|   |-- auth.controller.js
+|   |-- caregiver.controller.js
+|   |-- dashboard.controller.js
+|   |-- notification.controller.js
+|   `-- relationship.controller.js
+|-- jobs/
+|   |-- check-overdue-doses.js
+|   `-- generate-daily-doses.js
 |-- middlewares/
-|   `-- auth.middleware.js
+|   |-- auth.middleware.js
+|   |-- caregiver-patient.middleware.js
+|   `-- loginLimiter.middleware.js
 |-- models/
+|   |-- caregiver-relationship.model.js
 |   |-- email-credential.model.js
+|   |-- invitation-token.model.js
+|   |-- notification.model.js
 |   |-- pending-social-registration.model.js
 |   |-- provider-type.model.js
 |   |-- session.model.js
@@ -22,16 +34,24 @@ src/
 |   |-- user.model.js
 |   `-- verification-code.model.js
 |-- routes/
-|   `-- auth.routes.js
+|   |-- auth.routes.js
+|   |-- caregiver.routes.js
+|   |-- dashboard.routes.js
+|   |-- notification.routers.js
+|   `-- relationship.routes.js
 |-- services/
 |   |-- auth.service.js
+|   |-- dashboard.service.js
+|   |-- email.service.js
+|   |-- notification.service.js
+|   |-- relationship.service.js
 |   `-- social-provider.service.js
 |-- utils/
 |   `-- helpers.js
 `-- app.js
 ```
 
-## Configuracion
+## Configuración
 
 ```bash
 npm install
@@ -303,7 +323,7 @@ Respuestas de error comunes:
 }
 ```
 
-## Solicitar recuperacion de contrasena
+## Endpoint solicitar recuperación de contraseña
 
 `POST /auth/forgot-password`
 
@@ -316,7 +336,7 @@ expiracion de 10 minutos y lo envia al correo registrado.
 }
 ```
 
-## Endpoint reenviar codigo de verificacion
+## Endpoint reenviar código de verificación
 
 `POST /auth/resend-email-verification`
 
@@ -330,7 +350,7 @@ expiracion de 10 minutos.
 }
 ```
 
-## Restablecer contrasena
+## Restablecer contraseña
 
 `POST /auth/reset-password`
 
@@ -342,6 +362,295 @@ Valida las reglas de seguridad, actualiza el hash y revoca las sesiones activas.
   "resetToken": "jwt-temporal",
   "password": "NuevaClave1!"
 }
+```
+
+## Endpoint resumen diario de paciente
+
+`GET /dashboard/patient/summary`
+
+Calcula y retorna para el paciente autenticado: el total de dosis programadas, completadas y pendientes del día; la información de la próxima dosis pendiente (medicamento, hora programada y cantidad); y el historial de adherencia de los últimos 7 días para el gráfico semanal. Requiere token Bearer de autenticación en el header `Authorization`.
+
+### Ejemplo de respuesta exitosa (200 OK)
+
+```json
+{
+  "success": true,
+  "summary": {
+    "today": {
+      "scheduled": 4,
+      "completed": 2,
+      "pending": 2
+    },
+    "nextDose": {
+      "id": "100",
+      "medicationName": "Ibuprofeno 400mg",
+      "scheduledTime": "2026-07-02T08:00:00Z",
+      "dose": "1 tableta"
+    },
+    "weeklyAdherence": [
+      { "day": "Mon", "scheduled": 3, "completed": 3, "percentage": 100 },
+      { "day": "Tue", "scheduled": 3, "completed": 2, "percentage": 66.6 },
+      { "day": "Wed", "scheduled": 4, "completed": 4, "percentage": 100 },
+      { "day": "Thu", "scheduled": 4, "completed": 2, "percentage": 50 },
+      { "day": "Fri", "scheduled": 3, "completed": 3, "percentage": 100 },
+      { "day": "Sat", "scheduled": 2, "completed": 2, "percentage": 100 },
+      { "day": "Sun", "scheduled": 2, "completed": 1, "percentage": 50 }
+    ]
+  }
+}
+```
+
+## Endpoint resumen de seguimiento para cuidador
+
+`GET /dashboard/caregiver/summary`
+
+Retorna, para cada paciente con relación "aceptada" vinculado al cuidador autenticado, su estado de adherencia del día actual (total de dosis programadas, completadas, pendientes y porcentaje de adherencia del día). Requiere token Bearer de autenticación en el header `Authorization`.
+
+### Ejemplo de respuesta exitosa (200 OK)
+
+```json
+{
+  "success": true,
+  "patients": [
+    {
+      "id": "2",
+      "firstName": "Cesarín",
+      "lastName": "Cruz",
+      "email": "cesarin.cruz@trackpill.com",
+      "todayAdherence": {
+        "scheduled": 3,
+        "completed": 3,
+        "pending": 0,
+        "percentage": 100
+      }
+    },
+    {
+      "id": "3",
+      "firstName": "Ángel",
+      "lastName": "Blandito",
+      "email": "angel.blandito@trackpill.com",
+      "todayAdherence": {
+        "scheduled": 4,
+        "completed": 1,
+        "pending": 3,
+        "percentage": 25
+      }
+    }
+  ]
+}
+```
+
+## Endpoint de obtener el círculo de cuidado
+
+`GET /relationships?direction=<caregivers|patients>`
+
+Obtiene la lista de relaciones aceptadas. La dirección puede ser `caregivers`
+(para cuidadores que tiene el usuario) o `patients` (para pacientes asignados a
+este usuario si es cuidador).
+
+### Ejemplo de Respuesta:
+
+```json
+{
+  "success": true,
+  "relationships": [
+    {
+      "id": "1",
+      "caregiverId": "2",
+      "patientId": "1",
+      "relationshipLabel": "Hijo",
+      "active": true,
+      "status": "aceptada",
+      "user": {
+        "id": "2",
+        "firstName": "Kevin",
+        "lastName": "Lopez",
+        "email": "kevin@example.com"
+      }
+    }
+  ]
+}
+```
+
+## Endpoint de solicitar relación
+
+`POST /relationships/request`
+
+Envía una solicitud de relación a otro usuario.
+
+### Ejemplo de Petición:
+
+```json
+{
+  "initiatedAs": "caregiver",
+  "email": "paciente@example.com",
+  "relationshipLabel": "Papá"
+}
+```
+
+## Endpoint de crear token de invitación
+
+`POST /relationships/invite-token`
+
+Genera un token temporal para ser escaneado por QR o enviado por enlace para iniciar una relación de cuidado.
+
+### Ejemplo de Petición:
+
+```json
+{
+  "initiatedAs": "caregiver",
+  "invitationChannel": "qr"
+}
+```
+
+## Endpoint de canjear token de invitación
+
+`POST /relationships/redeem-token`
+
+Canjea un token de invitación activo para crear el vínculo.
+
+### Ejemplo de Petición:
+
+```json
+{
+  "token": "qr.invitation-token-uuid",
+  "relationshipLabel": "Abuelo"
+}
+```
+
+## Endpoint de responder a una solicitud de relación
+
+`POST /relationships/:id/respond`
+
+Acepta o rechaza una solicitud de relación pendiente.
+
+### Ejemplo de Petición:
+
+```json
+{
+  "status": "aceptada"
+}
+```
+
+## Endpoint de pausar o reactivar vínculo de cuidado
+
+`PATCH /relationships/:id/active`
+
+Pausa o reactiva temporalmente una relación activa.
+
+### Ejemplo de Petición:
+
+```json
+{
+  "active": false
+}
+```
+
+## Endpoint de eliminar relación
+
+`DELETE /relationships/:id`
+
+Marca la relación como eliminada de forma definitiva.
+
+## Endpoint de obtener calendario del paciente
+
+`GET /caregiver/patients/:patientId/calendar?month=YYYY-MM`
+
+Obtiene el listado de tomas y calendario del mes solicitado de un paciente específico asignado a este cuidador. Valida de forma estricta que exista una relación aceptada y activa (`active = true`) entre el cuidador y el paciente.
+
+### Ejemplo de Respuesta:
+
+```json
+{
+  "success": true,
+  "data": {
+    "patientId": 1,
+    "month": "2026-07",
+    "events": []
+  }
+}
+```
+
+## Endpoint de obtener detalle diario de dosis
+
+`GET /caregiver/patients/:patientId/doses?date=YYYY-MM-DD`
+
+Obtiene el detalle de dosis y tomas diarias para un paciente específico asignado a este cuidador en una fecha solicitada. Valida de forma estricta que exista una relación aceptada y activa (`active = true`) entre el cuidador y el paciente.
+
+### Ejemplo de Respuesta:
+
+```json
+{
+  "success": true,
+  "data": {
+    "patientId": 1,
+    "date": "2026-07-12",
+    "doses": []
+  }
+}
+```
+
+## Endpoint de Notificaciones del Usuario
+
+`GET /notifications`
+
+Retorna las notificaciones del usuario autenticado, ordenadas por fecha descendente. Incluye el tipo de notificación, mensaje, estado de lectura y las referencias necesarias para la navegación (paciente, medicamento o invitación). Requiere token Bearer de autenticación en el header `Authorization`.
+
+### Ejemplo de respuesta exitosa (200 OK)
+
+```json
+{
+  "success": true,
+  "notifications": [
+    {
+      "id": "101",
+      "type": "medication_reminder",
+      "message": "Es hora de tomar 1 pastilla de Paracetamol (500mg).",
+      "isRead": false,
+      "createdAt": "2026-07-03T11:30:00Z",
+      "references": {
+        "medicineId": "10"
+      }
+    },
+    {
+      "id": "102",
+      "type": "caregiver_invitation",
+      "message": "Blandin te ha invitado a ser su cuidador.",
+      "isRead": true,
+      "createdAt": "2026-07-02T15:45:00Z",
+      "references": {
+        "invitationId": "5",
+        "patientId": "1"
+      }
+    }
+  ]
+}
+```
+
+## Tareas Programadas (Jobs)
+
+### Generación diaria de dosis
+
+El sistema cuenta con un script independiente de Node.js diseñado para ejecutarse una vez al día a través de tareas programadas de la infraestructura (como Linux `crontab`, Heroku Scheduler, AWS EventBridge, etc.). Su objetivo es pre-generar las dosis del día siguiente en la tabla `medicine_stock.medication_logs` en base a la planificación activa de los medicamentos de cada paciente (`medicine_stock.medicines` y `medicine_stock.schedules`).
+
+Para ejecutar este job manualmente:
+
+```bash
+node src/jobs/generate-daily-doses.js
+```
+
+### Detección periódica de dosis atrasadas y omitidas
+
+Este script independiente se ejecuta de forma periódica (por ejemplo, cada minuto) para evaluar las dosis pendientes de los pacientes.
+
+- Transiciona a `Retrasada` si han transcurrido más de **10 minutos** desde su hora programada sin registrar toma.
+- Transiciona a `Omitida` si han transcurrido más de **30 minutos**.
+  En cada cambio de estado, busca a todos los cuidadores activos del paciente y genera las notificaciones de tipo `dosis_retrasada` o `dosis_omitida` correspondientes.
+
+Para ejecutar este job manualmente:
+
+```bash
+node src/jobs/check-overdue-doses.js
 ```
 
 ## Correo Gmail

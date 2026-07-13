@@ -1,0 +1,215 @@
+const db = require('../config/db');
+
+function mapCaregiverRelationship(row) {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    active: row.active,
+    caregiverId: row.caregiver_id,
+    id: row.id,
+    initiatedBy: row.initiated_by,
+    invitationChannel: row.invitation_channel,
+    invitationDate: row.invitation_date,
+    lastStatusChange: row.last_status_change,
+    patientId: row.patient_id,
+    relationshipLabel: row.relationship_label,
+    responseDate: row.response_date,
+    status: row.status,
+  };
+}
+
+async function create(relationship, client = db) {
+  const result = await client.query(
+    `
+      INSERT INTO auth.caregiver_relationships (
+        caregiver_id,
+        patient_id,
+        relationship_label,
+        initiated_by,
+        status,
+        active,
+        invitation_channel,
+        invitation_date,
+        response_date,
+        last_status_change
+      )
+      VALUES ($1, $2, $3, $4, 'pendiente', FALSE, $5, NOW(), NULL, NOW())
+      RETURNING *
+    `,
+    [
+      relationship.caregiverId,
+      relationship.patientId,
+      relationship.relationshipLabel,
+      relationship.initiatedBy,
+      relationship.invitationChannel,
+    ],
+  );
+
+  return mapCaregiverRelationship(result.rows[0]);
+}
+
+async function findOpenBetween(firstUserId, secondUserId, client = db) {
+  const result = await client.query(
+    `
+      SELECT *
+      FROM auth.caregiver_relationships
+      WHERE status IN ('pendiente', 'aceptada')
+        AND (
+          (caregiver_id = $1 AND patient_id = $2)
+          OR (caregiver_id = $2 AND patient_id = $1)
+        )
+      LIMIT 1
+    `,
+    [firstUserId, secondUserId],
+  );
+
+  return mapCaregiverRelationship(result.rows[0]);
+}
+
+async function findById(id, client = db) {
+  const result = await client.query('SELECT * FROM auth.caregiver_relationships WHERE id = $1 LIMIT 1', [id]);
+  return mapCaregiverRelationship(result.rows[0]);
+}
+
+async function updateResponse(id, status, client = db) {
+  const result = await client.query(
+    `UPDATE auth.caregiver_relationships
+     SET status = $2::VARCHAR, active = ($2::VARCHAR = 'aceptada'),
+         response_date = NOW(), last_status_change = NOW()
+     WHERE id = $1 AND status = 'pendiente' RETURNING *`,
+    [id, status],
+  );
+  return mapCaregiverRelationship(result.rows[0]);
+}
+
+/**
+ * Función que actualiza el estado activo de un caregiver relationship
+ * @author Jesús Zepeda
+ * @version 0.1.0
+ * @since 2026/07/06
+ * @date 2026/07/06
+ * @param {string} id ID del caregiver relationship
+ * @param {boolean} active Estado activo
+ * @param {object} [client=db] Cliente de la base de datos
+ * @returns {Promise<Object>} Caregiver relationship actualizado
+ */
+async function updateActiveStatus(id, active, client = db) {
+  const result = await client.query(
+    `UPDATE auth.caregiver_relationships
+     SET active = $2::BOOLEAN, last_status_change = NOW()
+     WHERE id = $1 RETURNING *`,
+    [id, active],
+  );
+  return mapCaregiverRelationship(result.rows[0]);
+}
+
+/**
+ * Encuentra las relaciones aceptadas dependiendo de la dirección.
+ * @author agblandin@unah.hn
+ * @version 0.1.0
+ * @since 2026/07/07
+ * @date 2026/07/07
+ * 
+ */
+async function findAcceptedByDirection(userId, direction, client = db) {
+  const isCaregiverQuery = direction === 'patients';
+
+  const userColumn = isCaregiverQuery ? 'caregiver_id' : 'patient_id';
+  const targetColumn = isCaregiverQuery ? 'patient_id' : 'caregiver_id';
+
+  const result = await client.query(
+    `
+      SELECT 
+        cr.id,
+        cr.caregiver_id,
+        cr.patient_id,
+        cr.relationship_label,
+        cr.active,
+        cr.status,
+        u.id AS target_user_id,
+        u.first_name,
+        u.last_name,
+        u.email
+      FROM auth.caregiver_relationships cr
+      JOIN auth.users u ON cr.${targetColumn} = u.id
+      WHERE cr.${userColumn} = $1 
+        AND cr.status = 'aceptada'
+      ORDER BY cr.last_status_change DESC
+    `,
+    [userId]
+  );
+
+  return result.rows.map(row => ({
+    id: row.id,
+    caregiverId: row.caregiver_id,
+    patientId: row.patient_id,
+    relationshipLabel: row.relationship_label,
+    active: row.active,
+    status: row.status,
+    user: {
+      id: row.target_user_id,
+      firstName: row.first_name,
+      lastName: row.last_name,
+      email: row.email
+    }
+  }));
+}
+
+/**
+ * Función que marca una relación como eliminada
+ * @author agblandin@unah.hn
+ * @version 0.1.0
+ * @since 2026/07/07
+ * @date 2026/07/07
+ */
+async function markAsDeleted(id, client = db) {
+  const result = await client.query(
+    `UPDATE auth.caregiver_relationships
+     SET status = 'eliminada', active = FALSE, last_status_change = NOW()
+     WHERE id = $1 RETURNING *`,
+    [id],
+  );
+  return mapCaregiverRelationship(result.rows[0]);
+}
+
+/**
+ * Función que encuentra una relación activa y aceptada entre un cuidador y un paciente
+ * @author Jesús Zepeda
+ * @version 0.1.0
+ * @since 2026/07/11
+ * @date 2026/07/11
+ * @param {string} caregiverId ID del cuidador
+ * @param {string} patientId ID del paciente
+ * @param {object} [client=db] Cliente de la base de datos
+ * @returns {Promise<Object>} Relación activa y aceptada
+ */
+async function findActiveRelation(caregiverId, patientId, client = db) {
+  const result = await client.query(
+    `SELECT * FROM auth.caregiver_relationships
+     WHERE caregiver_id = $1
+     AND patient_id = $2
+     AND status = 'aceptada'
+     AND active = TRUE
+    LIMIT 1
+    `,
+    [caregiverId, patientId]
+  );
+
+  return mapCaregiverRelationship(result.rows[0]);
+}
+
+module.exports = {
+  create,
+  findById,
+  findOpenBetween,
+  mapCaregiverRelationship,
+  updateActiveStatus,
+  updateResponse,
+  findAcceptedByDirection,
+  markAsDeleted,
+  findActiveRelation,
+};
+
+
