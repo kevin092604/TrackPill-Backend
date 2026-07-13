@@ -257,3 +257,7 @@ CREATE TABLE IF NOT EXISTS medicine_stock.notifications (
   -- TODO: Agregar un check para verificar los tipos de notificaciones
   CONSTRAINT notifications_users_check CHECK (user_id <> patient_id) -- verifica que no sean la misma persona
 );
+
+ALTER TABLE medicine_stock.medicines
+  ADD COLUMN IF NOT EXISTS low_stock_threshold NUMERIC(10, 2) NOT NULL DEFAULT 5.00,
+  ADD COLUMN IF NOT EXISTS low_stock_alert_sent BOOLEAN NOT NULL DEFAULT FALSE;
