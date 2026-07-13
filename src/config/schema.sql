@@ -215,6 +215,8 @@ CREATE TABLE IF NOT EXISTS medicine_stock.medicines (
   start_time TIME NOT NULL,
   schedule_id INT NOT NULL REFERENCES medicine_stock.schedules(id) ON DELETE RESTRICT,
   description TEXT,
+  low_stock_alert_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  low_stock_threshold NUMERIC(10, 2) DEFAULT NULL,
   user_id BIGINT NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE
 );
 
@@ -246,14 +248,13 @@ CREATE TABLE IF NOT EXISTS medicine_stock.medication_logs (
 
 CREATE TABLE IF NOT EXISTS medicine_stock.notifications (
   id BIGSERIAL PRIMARY KEY,
-  user_id BIGINT NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id BIGINT NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE, -- usuario que recibe la notificación
   type VARCHAR(50) NOT NULL,
   message TEXT NOT NULL,
   is_read BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  patient_id BIGINT REFERENCES auth.users(id) ON DELETE CASCADE,
+  patient_id BIGINT REFERENCES auth.users(id) ON DELETE CASCADE, -- paciente relacionado a la notificación
   medicine_id BIGINT REFERENCES medicine_stock.medicines(id) ON DELETE CASCADE,
   dose_id BIGINT REFERENCES medicine_stock.medication_logs(id) ON DELETE CASCADE,
   -- TODO: Agregar un check para verificar los tipos de notificaciones
-  CONSTRAINT notifications_users_check CHECK (user_id <> patient_id) -- verifica que no sean la misma persona
 );

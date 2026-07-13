@@ -1,11 +1,11 @@
 const express = require('express');
 
-const medicationController = require('../controllers/medication.controller');
+const medicineController = require('../controllers/medicine.controller');
 const authMiddleware = require('../middlewares/auth.middleware');
 
 const router = express.Router();
 
 router.use(authMiddleware);
-router.post('/', medicationController.registerMedication);
+router.post('/', medicineController.registerMedicine);
 
 module.exports = router;

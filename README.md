@@ -13,6 +13,7 @@ src/
 |   |-- auth.controller.js
 |   |-- caregiver.controller.js
 |   |-- dashboard.controller.js
+|   |-- medicine.controller.js
 |   |-- notification.controller.js
 |   `-- relationship.controller.js
 |-- jobs/
@@ -26,9 +27,11 @@ src/
 |   |-- caregiver-relationship.model.js
 |   |-- email-credential.model.js
 |   |-- invitation-token.model.js
+|   |-- medicine.model.js
 |   |-- notification.model.js
 |   |-- pending-social-registration.model.js
 |   |-- provider-type.model.js
+|   |-- schedule.model.js
 |   |-- session.model.js
 |   |-- social-provider.model.js
 |   |-- user.model.js
@@ -37,12 +40,15 @@ src/
 |   |-- auth.routes.js
 |   |-- caregiver.routes.js
 |   |-- dashboard.routes.js
-|   |-- notification.routers.js
+|   |-- medicine.routes.js
+|   |-- notification.routes.js
 |   `-- relationship.routes.js
 |-- services/
 |   |-- auth.service.js
 |   |-- dashboard.service.js
 |   |-- email.service.js
+|   |-- inventory.service.js
+|   |-- medicine.service.js
 |   |-- notification.service.js
 |   |-- relationship.service.js
 |   `-- social-provider.service.js
@@ -554,7 +560,7 @@ Marca la relación como eliminada de forma definitiva.
 
 ## Endpoint de obtener calendario del paciente
 
-`GET /caregiver/patients/:patientId/calendar?month=YYYY-MM`
+`GET /caregivers/patients/:patientId/calendar?month=YYYY-MM`
 
 Obtiene el listado de tomas y calendario del mes solicitado de un paciente específico asignado a este cuidador. Valida de forma estricta que exista una relación aceptada y activa (`active = true`) entre el cuidador y el paciente.
 
@@ -573,7 +579,7 @@ Obtiene el listado de tomas y calendario del mes solicitado de un paciente espec
 
 ## Endpoint de obtener detalle diario de dosis
 
-`GET /caregiver/patients/:patientId/doses?date=YYYY-MM-DD`
+`GET /caregivers/patients/:patientId/doses?date=YYYY-MM-DD`
 
 Obtiene el detalle de dosis y tomas diarias para un paciente específico asignado a este cuidador en una fecha solicitada. Valida de forma estricta que exista una relación aceptada y activa (`active = true`) entre el cuidador y el paciente.
 
@@ -624,6 +630,62 @@ Retorna las notificaciones del usuario autenticado, ordenadas por fecha descende
       }
     }
   ]
+}
+```
+
+## Endpoints de Medicamentos (Medicines)
+
+Todos los endpoints de este módulo requieren el token de acceso en la cabecera `Authorization: Bearer <token>`.
+
+### Registrar medicamento
+
+`POST /medicines`
+
+Registra un nuevo medicamento con su respectiva dosificación, stock inicial, umbrales de alerta de inventario y la planificación horaria semanal.
+
+**Ejemplo de Petición:**
+
+```json
+{
+  "name": "Paracetamol 500mg",
+  "pharmaceuticalFormId": 1,
+  "currentStock": 30.0,
+  "dose": 1.0,
+  "frequency": 8,
+  "timeUnitId": 1,
+  "startTime": "08:00",
+  "description": "Tomar después de las comidas",
+  "lowStockAlertEnabled": true,
+  "lowStockThreshold": 5.0,
+  "schedule": {
+    "monday": true,
+    "wednesday": true,
+    "friday": true
+  }
+}
+```
+
+**Ejemplo de Respuesta:**
+
+```json
+{
+  "success": true,
+  "medicine": {
+    "id": "1",
+    "name": "Paracetamol 500mg",
+    "image": null,
+    "pharmaceuticalFormId": 1,
+    "currentStock": 30,
+    "dose": 1,
+    "frequency": 8,
+    "timeUnitId": 1,
+    "startTime": "08:00:00",
+    "scheduleId": 2,
+    "description": "Tomar después de las comidas",
+    "lowStockAlertEnabled": true,
+    "lowStockThreshold": 5,
+    "userId": "1"
+  }
 }
 ```
 

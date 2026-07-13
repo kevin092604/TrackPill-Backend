@@ -5,9 +5,9 @@ const express = require('express');
 
 const { connectDB } = require('./config/db');
 const authRoutes = require('./routes/auth.routes');
-const medicationRoutes = require('./routes/medication.routes');
+const medicineRoutes = require('./routes/medicine.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
-const notificationRouter = require('./routes/notification.routers');
+const notificationRouter = require('./routes/notification.routes');
 const relationshipRoutes = require('./routes/relationship.routes');
 const caregiverRoutes = require('./routes/caregiver.routes');
 
@@ -24,11 +24,11 @@ app.get('/health', (_req, res) => {
 });
 
 app.use('/auth', authRoutes);
-app.use('/medications', medicationRoutes);
+app.use('/medicines', medicineRoutes);
 app.use('/dashboard', dashboardRoutes);
-app.use('/notification',notificationRouter);
+app.use('/notifications', notificationRouter);
 app.use('/relationships', relationshipRoutes);
-app.use('/caregiver', caregiverRoutes);
+app.use('/caregivers', caregiverRoutes);
 
 app.use((req, res) => {
   res.status(404).json({
