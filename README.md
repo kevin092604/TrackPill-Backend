@@ -710,6 +710,90 @@ Registra un nuevo medicamento con su respectiva dosificación, stock inicial, um
 }
 ```
 
+### Obtener listado de medicamentos (con búsqueda)
+`GET /medicines`
+
+Obtiene todos los medicamentos registrados para el paciente autenticado. Soporta coincidencia parcial por nombre utilizando el parámetro de búsqueda `?search=texto`.
+
+**Ejemplo de Petición:**
+`GET /medicines?search=para`
+
+**Ejemplo de Respuesta:**
+```json
+{
+  "success": true,
+  "medicines": [
+    {
+      "id": "1",
+      "name": "Paracetamol 500mg",
+      "image": null,
+      "dose": 1,
+      "frequency": 8,
+      "timeUnit": "horas",
+      "pharmaceuticalForm": "tableta",
+      "currentStock": 30,
+      "lowStockThreshold": 5,
+      "lowStockAlertEnabled": true,
+      "nextScheduledTime": "2026-07-19T08:00:00.000Z"
+    }
+  ]
+}
+```
+
+### Obtener detalle completo de un medicamento
+`GET /medicines/:id`
+
+Devuelve el detalle de un medicamento específico del paciente autenticado, incluyendo su presentación, planificación semanal de horarios, estimación de días de stock restantes (`daysRemaining`) e historial de cumplimiento de la semana actual (`weeklyCompliance`).
+
+**Ejemplo de Petición:**
+`GET /medicines/1`
+
+**Ejemplo de Respuesta:**
+```json
+{
+  "success": true,
+  "medicine": {
+    "id": "1",
+    "name": "Paracetamol 500mg",
+    "image": null,
+    "pharmaceuticalFormId": 1,
+    "pharmaceuticalFormName": "tableta",
+    "currentStock": 30,
+    "dose": 1,
+    "frequency": 8,
+    "timeUnitId": 1,
+    "timeUnitName": "horas",
+    "startTime": "08:00:00",
+    "scheduleId": 2,
+    "description": "Tomar después de las comidas (Para el dolor)",
+    "lowStockAlertEnabled": true,
+    "lowStockThreshold": 5,
+    "userId": "1",
+    "schedule": {
+      "startDate": null,
+      "endDate": null,
+      "monday": true,
+      "tuesday": false,
+      "wednesday": true,
+      "thursday": false,
+      "friday": true,
+      "saturday": false,
+      "sunday": false
+    },
+    "daysRemaining": 10,
+    "weeklyCompliance": [
+      { "day": "Lun", "status": "completed" },
+      { "day": "Mar", "status": "none" },
+      { "day": "Mié", "status": "completed" },
+      { "day": "Jue", "status": "none" },
+      { "day": "Vie", "status": "completed" },
+      { "day": "Sáb", "status": "none" },
+      { "day": "Dom", "status": "none" }
+    ]
+  }
+}
+```
+
 ## Tareas Programadas (Jobs)
 
 ### Generación diaria de dosis
