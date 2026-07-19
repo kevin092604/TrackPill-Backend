@@ -1,71 +1,40 @@
+const notificationModel = require('../models/notification.model');
+
 /**
- * Función que obtiene las notificaciones de un usuario.
+ * Función que obtiene las notificaciones de un usuario desde la base de datos.
  * @author agblandin@unah.hn
- * @version 0.1.1
+ * @version 0.1.2
  * @since 2026/07/03
- * @date 2026/07/03
+ * @date 2026/07/19
  * @param {number} userId ID del usuario autenticado
  * @returns {Promise<Object[]>} Arreglo con las notificaciones ordenadas
  */
 async function getUserNotifications(userId) {
+    
+    const notifications = await notificationModel.findByUserId(userId);
 
-    const now = Date.now();
-
-    // Respuesta tenporal
-    return [
-        {
-            id: "1",
-            type: "medication_reminder",
-            title: "Recordatorio",
-            message: "Es hora de tu dosis de Omeprazole 20mg",
-            details: "Horario 14:30",
-            isRead: false, 
-            createdAt: now,
-            references: {
-                medicineId: "15",
-                scheduleId: "42"
-            }
-        },
-        {
-            id: "2",
-            type: "caregiver_invitation",
-            title: "Invitación",
-            message: "BLandin te invitó a formar parte de su círculo de cuidadores",
-            details: null, 
-            isRead: false, 
-            createdAt: now,
-            references: {
-                invitationId: "8",
-                patientId: "2"
-            }
-        },
-        {
-            id: "3",
-            type: "low_inventory",
-            title: "Alerta de inventario",
-            message: "Paracetamol 500mg tiene stock bajo",
-            details: "Solo 5 unidades restantes",
-            isRead: false, 
-            createdAt: now,
-            references: {
-                medicineId: "10"
-            }
-        },
-        {
-            id: "4",
-            type: "medication_reminder",
-            title: "Recordatorio",
-            message: "Es hora de tu dosis de Omeprazole 20mg",
-            details: "Horario 14:30",
-            isRead: true, 
-            createdAt: now,
-            references: {
-                medicineId: "15",
-                scheduleId: "41"
-            }
-        },
+    return notifications.map(notif => {
         
-    ];
+        let titleText = "Notificación";
+        if (notif.type === 'medication_reminder') titleText = "Recordatorio";
+        if (notif.type === 'caregiver_invitation') titleText = "Invitación";
+        if (notif.type === 'low_inventory') titleText = "Alerta de inventario";
+
+        const referencesObj = {};
+        if (notif.medicineId) referencesObj.medicineId = notif.medicineId.toString();
+        if (notif.patientId) referencesObj.patientId = notif.patientId.toString();
+        if (notif.doseId) referencesObj.doseId = notif.doseId.toString();
+
+        return {
+            id: notif.id.toString(),
+            type: notif.type,
+            title: titleText,
+            message: notif.message,
+            isRead: notif.isRead,
+            createdAt: new Date(notif.createdAt).getTime(), 
+            references: Object.keys(referencesObj).length > 0 ? referencesObj : null
+        };
+    });
 }
 
 module.exports = {

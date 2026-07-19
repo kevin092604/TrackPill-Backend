@@ -66,7 +66,30 @@ async function create(notification, client = db) {
     return mapNotification(result.rows[0]);
 }
 
+/**
+ * Función que obtiene todas las notificaciones de un usuario específico ordenadas por las más recientes.
+ * @author agblandin@unah.hn
+ * @version 0.1.0
+ * @since 2026/07/19
+ * @param {number|string} userId - ID del usuario.
+ * @param {object} client - Cliente de base de datos.
+ * @returns {Promise<object[]>} Arreglo de objetos Notification.
+ */
+async function findByUserId(userId, client = db) {
+    const result = await client.query(
+        `
+        SELECT * FROM medicine_stock.notifications
+        WHERE user_id = $1
+        ORDER BY created_at DESC
+        `,
+        [userId]
+    );
+
+    return result.rows.map(mapNotification);
+}
+
 module.exports = {
     create,
     mapNotification,
+    findByUserId,
 };
