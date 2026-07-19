@@ -374,7 +374,7 @@ Valida las reglas de seguridad, actualiza el hash y revoca las sesiones activas.
 
 `GET /dashboard/patient/summary`
 
-Calcula y retorna para el paciente autenticado: el total de dosis programadas, completadas y pendientes del día; la información de la próxima dosis pendiente (medicamento, hora programada y cantidad); y el historial de adherencia de los últimos 7 días para el gráfico semanal. Requiere token Bearer de autenticación en el header `Authorization`.
+Calcula y retorna para el paciente autenticado: el total de dosis programadas, completadas y pendientes del día; el conteo de medicamentos activos (stock > 0); la información de la próxima dosis pendiente (medicamento, hora programada y cantidad); y el historial de adherencia de los últimos 7 días (lunes a domingo) para el gráfico semanal. Requiere token Bearer de autenticación en el header `Authorization`.
 
 ### Ejemplo de respuesta exitosa (200 OK)
 
@@ -383,24 +383,25 @@ Calcula y retorna para el paciente autenticado: el total de dosis programadas, c
   "success": true,
   "summary": {
     "today": {
-      "scheduled": 4,
-      "completed": 2,
+      "scheduled": 5,
+      "completed": 3,
       "pending": 2
     },
+    "activeMedicinesCount": 2,
     "nextDose": {
-      "id": "100",
-      "medicationName": "Ibuprofeno 400mg",
-      "scheduledTime": "2026-07-02T08:00:00Z",
+      "id": "1",
+      "medicationName": "Losartán 50mg",
+      "scheduledTime": "2026-07-18T23:59:00.000Z",
       "dose": "1 tableta"
     },
     "weeklyAdherence": [
-      { "day": "Mon", "scheduled": 3, "completed": 3, "percentage": 100 },
-      { "day": "Tue", "scheduled": 3, "completed": 2, "percentage": 66.6 },
-      { "day": "Wed", "scheduled": 4, "completed": 4, "percentage": 100 },
-      { "day": "Thu", "scheduled": 4, "completed": 2, "percentage": 50 },
-      { "day": "Fri", "scheduled": 3, "completed": 3, "percentage": 100 },
-      { "day": "Sat", "scheduled": 2, "completed": 2, "percentage": 100 },
-      { "day": "Sun", "scheduled": 2, "completed": 1, "percentage": 50 }
+      { "day": "Mon", "scheduled": 3, "completed": 3, "pending": 0, "percentage": 100 },
+      { "day": "Tue", "scheduled": 3, "completed": 2, "pending": 1, "percentage": 66.7 },
+      { "day": "Wed", "scheduled": 4, "completed": 4, "pending": 0, "percentage": 100 },
+      { "day": "Thu", "scheduled": 4, "completed": 2, "pending": 2, "percentage": 50 },
+      { "day": "Fri", "scheduled": 3, "completed": 3, "pending": 0, "percentage": 100 },
+      { "day": "Sat", "scheduled": 2, "completed": 2, "pending": 0, "percentage": 100 },
+      { "day": "Sun", "scheduled": 2, "completed": 1, "pending": 1, "percentage": 50 }
     ]
   }
 }
@@ -410,7 +411,7 @@ Calcula y retorna para el paciente autenticado: el total de dosis programadas, c
 
 `GET /dashboard/caregiver/summary`
 
-Retorna, para cada paciente con relación "aceptada" vinculado al cuidador autenticado, su estado de adherencia del día actual (total de dosis programadas, completadas, pendientes y porcentaje de adherencia del día). Requiere token Bearer de autenticación en el header `Authorization`.
+Retorna, para cada paciente con relación activa y aceptada vinculado al cuidador autenticado, su estado de adherencia del día actual, su próxima dosis, su última actividad (toma de dosis), el inventario crítico y el cumplimiento semanal. Requiere token Bearer de autenticación en el header `Authorization`.
 
 ### Ejemplo de respuesta exitosa (200 OK)
 
@@ -420,27 +421,47 @@ Retorna, para cada paciente con relación "aceptada" vinculado al cuidador auten
   "patients": [
     {
       "id": "2",
-      "firstName": "Cesarín",
-      "lastName": "Cruz",
-      "email": "cesarin.cruz@trackpill.com",
+      "firstName": "Angel",
+      "lastName": "Blandin",
+      "email": "angel.blandin@trackpill.com",
+      "photoUrl": null,
+      "relationshipLabel": "Amigo",
       "todayAdherence": {
-        "scheduled": 3,
+        "scheduled": 5,
         "completed": 3,
-        "pending": 0,
-        "percentage": 100
-      }
-    },
-    {
-      "id": "3",
-      "firstName": "Ángel",
-      "lastName": "Blandito",
-      "email": "angel.blandito@trackpill.com",
-      "todayAdherence": {
-        "scheduled": 4,
-        "completed": 1,
-        "pending": 3,
-        "percentage": 25
-      }
+        "pending": 2,
+        "percentage": 60
+      },
+      "nextDose": {
+        "medicationName": "Losartán 50mg",
+        "scheduledTime": "2026-07-19T14:20:00.000Z",
+        "dose": "1 tableta",
+        "timeRemainingText": "En 2 horas"
+      },
+      "lastActivity": {
+        "medicationName": "Acetaminofén 300 mg",
+        "takenTime": "2026-07-19T11:30:00.000Z",
+        "dose": "1 tableta",
+        "timeAgoText": "Hace 30 minutos"
+      },
+      "criticalInventory": [
+        {
+          "id": "10",
+          "name": "Acetaminofén 300 mg",
+          "currentStock": 10,
+          "pharmaceuticalForm": "tableta"
+        }
+      ],
+      "weeklyCompliance": [
+        { "day": "Mon", "status": "completed" },
+        { "day": "Tue", "status": "completed" },
+        { "day": "Wed", "status": "failed" },
+        { "day": "Thu", "status": "completed" },
+        { "day": "Fri", "status": "completed" },
+        { "day": "Sat", "status": "none" },
+        { "day": "Sun", "status": "none" }
+      ],
+      "weeklyCompliancePercentage": 88
     }
   ]
 }
