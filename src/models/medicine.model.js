@@ -218,6 +218,45 @@ async function findDetailById(medicineId, client = db) {
   };
 }
 
+/**
+ * Función que permite actualizar un medicamento dinámicamente.
+ * @author agblandin@unah.hn
+ * @version 0.1.0
+ * @since 2026/07/19
+ */
+async function update(id, data, client = db) {
+  const fields = [];
+  const values = [];
+  let index = 1;
+
+  if (data.name !== undefined) { fields.push(`name = $${index++}`); values.push(data.name); }
+  if (data.image !== undefined) { fields.push(`image = $${index++}`); values.push(data.image); }
+  if (data.pharmaceuticalFormId !== undefined) { fields.push(`pharmaceutical_form_id = $${index++}`); values.push(data.pharmaceuticalFormId); }
+  if (data.currentStock !== undefined) { fields.push(`current_stock = $${index++}`); values.push(data.currentStock); }
+  if (data.dose !== undefined) { fields.push(`dose = $${index++}`); values.push(data.dose); }
+  if (data.frequency !== undefined) { fields.push(`frequency = $${index++}`); values.push(data.frequency); }
+  if (data.timeUnitId !== undefined) { fields.push(`time_unit_id = $${index++}`); values.push(data.timeUnitId); }
+  if (data.startTime !== undefined) { fields.push(`start_time = $${index++}`); values.push(data.startTime); }
+  if (data.description !== undefined) { fields.push(`description = $${index++}`); values.push(data.description); }
+  if (data.lowStockAlertEnabled !== undefined) { fields.push(`low_stock_alert_enabled = $${index++}`); values.push(data.lowStockAlertEnabled); }
+  if (data.lowStockThreshold !== undefined) { fields.push(`low_stock_threshold = $${index++}`); values.push(data.lowStockThreshold); }
+
+  if (fields.length === 0) {
+    return await findById(id, client);
+  }
+
+  values.push(id);
+  const query = `
+    UPDATE medicine_stock.medicines
+    SET ${fields.join(', ')}
+    WHERE id = $${index}
+    RETURNING *
+  `;
+
+  const result = await client.query(query, values);
+  return mapMedicine(result.rows[0]);
+}
+
 module.exports = {
   create,
   findById,
@@ -225,4 +264,5 @@ module.exports = {
   findAllByUserId,
   findDetailById,
   mapMedicine,
+  update
 };

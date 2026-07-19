@@ -46,8 +46,32 @@ async function getMedicineDetail(req, res, next) {
   }
 }
 
+/**
+ * Controlador para actualizar un medicamento existente.
+ * @author agblandin@unah.hn
+ * @version 0.1.0
+ * @since 2026/07/19
+ */
+async function updateMedicine(req, res, next) {
+  try {
+    const updatedMedicine = await medicineService.updateMedicine(
+      req.params.id, 
+      req.user.id, 
+      req.body
+    );
+
+    res.status(200).json({
+      success: true,
+      medicine: updatedMedicine,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   registerMedicine,
   getMedicines,
-  getMedicineDetail
+  getMedicineDetail,
+  updateMedicine
 };

@@ -10,5 +10,5 @@ router.use(authMiddleware);
 router.post('/', medicineController.registerMedicine);
 router.get('/', medicineController.getMedicines);
 router.get('/:id', medicineController.getMedicineDetail);
-
+router.put('/:id', medicineController.updateMedicine);
 module.exports = router;

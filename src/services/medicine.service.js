@@ -184,8 +184,77 @@ async function getMedicineDetail(medicineId, userId) {
   };
 }
 
+const updateMedicineSchema = z.object({
+  name: z.string().trim().min(1, 'Ingresa el nombre del medicamento.').max(120).optional(),
+  image: z.string().optional().nullable(),
+  pharmaceuticalFormId: z.number().int().positive().optional(),
+  currentStock: z.coerce.number().min(0).optional(),
+  dose: z.coerce.number().positive().optional(),
+  frequency: z.number().int().positive().optional(),
+  timeUnitId: z.number().int().positive().optional(),
+  startTime: z.string().regex(TIME_REGEX, 'Formato de hora de inicio inválido.').optional(),
+  description: z.string().trim().optional().nullable(),
+  lowStockAlertEnabled: z.boolean().optional(),
+  lowStockThreshold: z.coerce.number().positive().optional().nullable(),
+  schedule: z.object({
+    startDate: z.string().optional().nullable(),
+    endDate: z.string().optional().nullable(),
+    monday: z.boolean().optional(),
+    tuesday: z.boolean().optional(),
+    wednesday: z.boolean().optional(),
+    thursday: z.boolean().optional(),
+    friday: z.boolean().optional(),
+    saturday: z.boolean().optional(),
+    sunday: z.boolean().optional(),
+  }).optional()
+}).refine(
+  (data) => {
+    if (data.lowStockAlertEnabled !== undefined && data.lowStockAlertEnabled) {
+      return data.lowStockThreshold != null;
+    }
+    return true;
+  },
+  { message: 'Indica a partir de cuántas dosis avisar.', path: ['lowStockThreshold'] }
+);
+
+/**
+ * Servicio para actualizar un medicamento.
+ * @author agblandin@unah.hn
+ * @version 0.1.0
+ * @since 2026/07/19
+ */
+async function updateMedicine(medicineId, userId, payload) {
+  const result = updateMedicineSchema.safeParse(payload);
+
+  if (!result.success) {
+    throw createHttpError(422, result.error.issues[0].message, 'validation_error');
+  }
+
+  const data = result.data;
+
+  const existingMedicine = await Medicine.findById(medicineId);
+  if (!existingMedicine) {
+    throw createHttpError(404, 'Medicamento no encontrado.', 'medicine_not_found');
+  }
+  if (existingMedicine.userId !== userId) {
+    throw createHttpError(403, 'No tienes permiso para editar este medicamento.', 'unauthorized');
+  }
+
+  const updatedMedicine = await db.transaction(async (client) => {
+    
+    if (data.schedule) {
+      await Schedule.update(existingMedicine.scheduleId, data.schedule, client);
+    }
+
+    return await Medicine.update(medicineId, data, client);
+  });
+
+  return updatedMedicine;
+}
+
 module.exports = {
   registerMedicine,
   getMedicines,
-  getMedicineDetail
+  getMedicineDetail,
+  updateMedicine
 };

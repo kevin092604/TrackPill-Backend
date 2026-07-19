@@ -793,6 +793,30 @@ Devuelve el detalle de un medicamento específico del paciente autenticado, incl
   }
 }
 ```
+## Endpoint editar medicamento
+
+`PUT /medicines/:id`
+
+Actualiza los datos de un medicamento existente. Valida de forma estricta que el medicamento pertenezca al usuario autenticado. Soporta actualizaciones parciales o totales (puedes enviar solo los campos que necesitas cambiar o el formulario completo). 
+
+Si se envían datos dentro del objeto `schedule`, también actualizará la planificación de días de la semana de manera dinámica.
+
+### Ejemplo de Petición:
+
+```json
+{
+  "name": "Losartán 100mg",
+  "currentStock": 25,
+  "dose": 1.5,
+  "lowStockAlertEnabled": true,
+  "lowStockThreshold": 5,
+  "schedule": {
+    "monday": true,
+    "wednesday": true,
+    "friday": true
+  }
+}
+```
 
 ## Tareas Programadas (Jobs)
 
