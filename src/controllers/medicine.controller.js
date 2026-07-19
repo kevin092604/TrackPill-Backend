@@ -13,6 +13,41 @@ async function registerMedicine(req, res, next) {
   }
 }
 
+/**
+ * Controlador para obtener la lista de medicamentos (soporta búsqueda).
+ */
+async function getMedicines(req, res, next) {
+  try {
+    const search = req.query.search || '';
+    const medicines = await medicineService.getMedicines(req.user.id, search);
+
+    res.status(200).json({
+      success: true,
+      medicines,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Controlador para obtener el detalle de un medicamento específico.
+ */
+async function getMedicineDetail(req, res, next) {
+  try {
+    const detail = await medicineService.getMedicineDetail(req.params.id, req.user.id);
+
+    res.status(200).json({
+      success: true,
+      medicine: detail,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   registerMedicine,
+  getMedicines,
+  getMedicineDetail
 };

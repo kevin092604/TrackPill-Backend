@@ -78,6 +78,114 @@ async function registerMedicine(userId, payload) {
   return { medicine };
 }
 
+/**
+ * Calcula los límites de fecha de la semana actual.
+ */
+function getCurrentWeekBounds() {
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + diffToMonday);
+  monday.setHours(0, 0, 0, 0);
+
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+
+  return { monday, sunday };
+}
+
+/**
+ * Obtiene la lista de medicamentos de un usuario (con búsqueda).
+ */
+async function getMedicines(userId, search = '') {
+  const medicines = await Medicine.findAllByUserId(userId, search);
+
+  for (const med of medicines) {
+    const nextDoseResult = await db.query(
+      `SELECT scheduled_time 
+       FROM medicine_stock.medication_logs 
+       WHERE medicine_id = $1 
+         AND scheduled_time >= NOW() 
+         AND status_id IN (1, 3)
+       ORDER BY scheduled_time ASC 
+       LIMIT 1`,
+      [med.id]
+    );
+    med.nextScheduledTime = nextDoseResult.rows[0]?.scheduled_time || null;
+  }
+
+  return medicines;
+}
+
+/**
+ * Obtiene el detalle de un medicamento específico.
+ */
+async function getMedicineDetail(medicineId, userId) {
+  const detail = await Medicine.findDetailById(medicineId);
+
+  if (!detail) {
+    throw createHttpError(404, 'Medicamento no encontrado.', 'medicine_not_found');
+  }
+
+  if (detail.userId !== userId) {
+    throw createHttpError(403, 'No tienes permiso para ver este medicamento.', 'unauthorized');
+  }
+
+  // A. Calcular estimación de días de inventario restantes
+  const dailyDoses = 24 / detail.frequency;
+  const dailyDoseAmount = dailyDoses * detail.dose;
+  const daysRemaining = dailyDoseAmount > 0 
+    ? Math.round(detail.currentStock / dailyDoseAmount) 
+    : 0;
+
+  // B. Obtener historial de cumplimiento semanal de este medicamento (Lunes a Domingo)
+  const { monday, sunday } = getCurrentWeekBounds();
+  const logsResult = await db.query(
+    `SELECT scheduled_time, status_id 
+     FROM medicine_stock.medication_logs 
+     WHERE medicine_id = $1 
+       AND scheduled_time >= $2 
+       AND scheduled_time <= $3`,
+    [medicineId, monday, sunday]
+  );
+  
+  const logs = logsResult.rows;
+  const dayNames = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+  const weeklyCompliance = [];
+
+  for (let i = 0; i < 7; i++) {
+    const dayDate = new Date(monday);
+    dayDate.setDate(monday.getDate() + i);
+
+    const dayLogs = logs.filter(log => {
+      const logDate = new Date(log.scheduled_time);
+      return logDate.toDateString() === dayDate.toDateString();
+    });
+
+    let status = 'none';
+    if (dayLogs.length > 0) {
+      const completedCount = dayLogs.filter(log => log.status_id === 2).length;
+      status = completedCount === dayLogs.length ? 'completed' : 'failed';
+    }
+
+    weeklyCompliance.push({
+      day: dayNames[i],
+      status
+    });
+  }
+
+  return {
+    ...detail,
+    daysRemaining,
+    weeklyCompliance
+  };
+}
+
 module.exports = {
   registerMedicine,
+  getMedicines,
+  getMedicineDetail
 };
