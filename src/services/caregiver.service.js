@@ -1,11 +1,13 @@
 const CaregiverRelationship = require('../models/caregiver-relationship.model');
+const PatientModel = require('../models/patient.model'); 
 const { createHttpError } = require('../utils/helpers');
 
 /**
  * Obtiene el resumen médico de un paciente para su cuidador
  * @author agblandin@unah.hn
- * @version 0.1.0
+ * @version 0.1.1
  * @since 2026/07/12
+ * @date 2026/07/19
  * @param {string|number} caregiverId ID del cuidador (usuario logueado)
  * @param {string|number} patientId ID del paciente a consultar
  * @returns {Promise<Object>} Resumen del paciente
@@ -21,68 +23,68 @@ async function getPatientSummary(caregiverId, patientId) {
   if (!relationship.active) {
      throw createHttpError(403, 'El vínculo con este paciente se encuentra pausado.', 'paused_relationship');
   }
+  const [nextDoseData, recentActivityData, complianceData] = await Promise.all([
+      PatientModel.getNextDose(patientId),
+      PatientModel.getRecentActivity(patientId),
+      PatientModel.getWeeklyCompliance(patientId)
+  ]);
 
-  // mock data
   const summary = {
     patientId: parseInt(patientId, 10),
     relationshipLabel: relationship.relationshipLabel,
-    nextDose: {
-      medicationName: "Amoxicilina 500mg",
-      scheduledTime: "14:00",
-      status: "pending"
-    },
-    recentActivity: [
-      { medicationName: "Losartán 50mg", takenAt: "2026-07-12T08:05:00Z", status: "taken" },
-      { medicationName: "Vitamina C", takenAt: "2026-07-11T20:00:00Z", status: "taken" }
-    ],
-    weeklyCompliance: {
-      percentage: 85,
-      dosesTaken: 12,
-      totalDoses: 14
-    }
+    nextDose: nextDoseData ? {
+      medicationName: nextDoseData.medication_name,
+      scheduledTime: nextDoseData.scheduled_time, 
+      status: "pending" 
+    } : null,
+    recentActivity: recentActivityData.map(log => ({
+      medicationName: log.medication_name,
+      takenAt: log.taken_time,
+      status: log.status.toLowerCase()
+    })),
+    weeklyCompliance: complianceData
   };
+
   return summary;
 }
 
 /**
  * Obtiene la lista de medicamentos activos de un paciente
  * @author agblandin@unah.hn
- * @version 0.1.1
+ * @version 0.1.2
  * @since 2026/07/12
+ * @date 2026/07/19
+ * @param {string|number} caregiverId ID del cuidador que hace la solicitud
  * @param {string|number} patientId ID del paciente a consultar
  * @returns {Promise<Object>} Objeto con los datos del paciente y sus medicamentos
  */
-async function getPatientMedicines(patientId) {
-  // mock data
-  const medicines = [
-    {
-      id: 101,
-      name: "Losartán 50mg",
-      doseQuantity: 1,
-      doseUnit: "Tableta",
-      frequencyText: "cada 24 horas",
-      nextDoseTime: "7:00 a.m.",
-      remainingStock: 18,
-      stockUnit: "tabletas",
+async function getPatientMedicines(caregiverId, patientId) {
+  
+  const relationship = await CaregiverRelationship.findOpenBetween(caregiverId, patientId);
+  if (!relationship || relationship.status !== 'aceptada' || !relationship.active) {
+    throw createHttpError(403, 'No tienes permiso para ver los medicamentos de este paciente.');
+  }
+
+  const rawMedicines = await PatientModel.getPatientMedicines(patientId);
+  
+  const patientFirstName = rawMedicines.length > 0 ? rawMedicines[0].first_name : "Paciente";
+
+  const formattedMedicines = rawMedicines.map(med => ({
+      id: med.id,
+      name: med.name,
+      doseQuantity: parseFloat(med.dose_quantity),
+      doseUnit: med.dose_unit,
+      frequencyText: `cada ${med.frequency} ${med.frequency_unit.toLowerCase()}`,
+      remainingStock: parseFloat(med.remaining_stock),
+      stockUnit: med.dose_unit,
       status: "active"
-    },
-    {
-      id: 102,
-      name: "Omeprazol 20mg",
-      doseQuantity: 1,
-      doseUnit: "Cápsula",
-      frequencyText: "cada 24 horas",
-      nextDoseTime: "10:00 a.m.",
-      remainingStock: 10,
-      stockUnit: "tabletas",
-      status: "active"
-    }
-  ];
+  }));
+
   return {
     patientId: Number(patientId),
-    patientName: "Angel",
-    totalActive: medicines.length,
-    medicines
+    patientName: patientFirstName,
+    totalActive: formattedMedicines.length,
+    medicines: formattedMedicines
   };
 }
 
