@@ -11,4 +11,6 @@ router.post('/', medicineController.registerMedicine);
 router.get('/', medicineController.getMedicines);
 router.get('/:id', medicineController.getMedicineDetail);
 router.put('/:id', medicineController.updateMedicine);
+router.get('/:id/pharmacies', medicineController.getNearbyPharmacies);
+
 module.exports = router;

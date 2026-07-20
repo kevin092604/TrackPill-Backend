@@ -255,6 +255,22 @@ CREATE TABLE IF NOT EXISTS medicine_stock.notifications (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   patient_id BIGINT REFERENCES auth.users(id) ON DELETE CASCADE, -- paciente relacionado a la notificación
   medicine_id BIGINT REFERENCES medicine_stock.medicines(id) ON DELETE CASCADE,
-  dose_id BIGINT REFERENCES medicine_stock.medication_logs(id) ON DELETE CASCADE,
+  dose_id BIGINT REFERENCES medicine_stock.medication_logs(id) ON DELETE CASCADE
   -- TODO: Agregar un check para verificar los tipos de notificaciones
 );
+
+CREATE TABLE IF NOT EXISTS medicine_stock.pharmacy_prices (
+  id BIGSERIAL PRIMARY KEY,
+  medicine_name_normalized VARCHAR(255) NOT NULL,
+  pharmacy_place_id VARCHAR(255) NOT NULL,
+  pharmacy_name VARCHAR(255) NOT NULL,
+  price NUMERIC(10, 2) NOT NULL,
+  currency VARCHAR(10) NOT NULL DEFAULT 'HNL',
+  country_code VARCHAR(5) NOT NULL DEFAULT 'HN',
+  source VARCHAR(50) NOT NULL DEFAULT 'estimated',
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT check_source CHECK (source IN ('real', 'crowd_sourced', 'estimated'))
+);
+
+CREATE INDEX IF NOT EXISTS pharmacy_prices_lookup_idx
+  ON medicine_stock.pharmacy_prices (medicine_name_normalized, country_code);

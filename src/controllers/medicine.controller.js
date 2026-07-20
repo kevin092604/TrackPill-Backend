@@ -1,4 +1,6 @@
 const medicineService = require('../services/medicine.service');
+const pharmacyService = require('../services/pharmacy.service');
+const { createHttpError } = require('../utils/helpers');
 
 async function registerMedicine(req, res, next) {
   try {
@@ -69,9 +71,36 @@ async function updateMedicine(req, res, next) {
   }
 }
 
+/**
+ * Controlador para obtener las farmacias cercanas con disponibilidad y precios.
+ */
+async function getNearbyPharmacies(req, res, next) {
+  try {
+    const { lat, lng } = req.query;
+    if (!lat || !lng) {
+      throw createHttpError(400, 'Se requieren latitud (lat) y longitud (lng) para la búsqueda.', 'bad_request');
+    }
+
+    const pharmacies = await pharmacyService.getNearbyPharmacies(
+      req.params.id,
+      lat,
+      lng,
+      req.user.id
+    );
+
+    res.status(200).json({
+      success: true,
+      pharmacies,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   registerMedicine,
   getMedicines,
   getMedicineDetail,
-  updateMedicine
+  updateMedicine,
+  getNearbyPharmacies,
 };
