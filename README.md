@@ -840,6 +840,43 @@ Devuelve el detalle de un medicamento específico del paciente autenticado, incl
 }
 ```
 
+## Endpoint listado de medicamentos activos (vista móvil)
+
+`GET /medications`
+
+Obtiene la lista de medicamentos activos del usuario autenticado, formateada específicamente para renderizar las tarjetas en la vista de "Mis medicinas" de la aplicación móvil. Soporta coincidencia parcial por nombre utilizando el parámetro de búsqueda opcional `?search=texto`.
+
+El endpoint calcula dinámicamente el texto de la frecuencia y busca en la base de datos la próxima dosis pendiente que sea mayor a la hora actual (`NOW()`), devolviéndola en formato local de 12 horas. Si no hay dosis futuras pendientes, retorna `null`.
+
+### Ejemplo de Petición:
+`GET /medications?search=omeprazol`
+
+### Ejemplo de Respuesta:
+
+```json
+{
+  "success": true,
+  "medications": [
+    {
+      "id": 1,
+      "name": "Losartán 50mg",
+      "doseAmount": 1,
+      "doseUnit": "tableta",
+      "frequencyLabel": "cada 24 horas",
+      "nextDoseLabel": "7:00 a.m."
+    },
+    {
+      "id": 2,
+      "name": "Omeprazol 20mg",
+      "doseAmount": 1,
+      "doseUnit": "cápsula",
+      "frequencyLabel": "cada 12 horas",
+      "nextDoseLabel": "10:00 p.m."
+    }
+  ]
+}
+```
+
 ## Endpoint editar medicamento
 
 `PUT /medicines/:id`

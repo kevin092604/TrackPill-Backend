@@ -10,6 +10,7 @@ const dashboardRoutes = require('./routes/dashboard.routes');
 const notificationRouter = require('./routes/notification.routes');
 const relationshipRoutes = require('./routes/relationship.routes');
 const caregiverRoutes = require('./routes/caregiver.routes');
+const activeMedications = require('./routes/activeMedications.routes');
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.use('/dashboard', dashboardRoutes);
 app.use('/notifications', notificationRouter);
 app.use('/relationships', relationshipRoutes);
 app.use('/caregivers', caregiverRoutes);
+app.use('/medications', activeMedications);
 
 app.use((req, res) => {
   res.status(404).json({
