@@ -286,3 +286,97 @@ CREATE TABLE IF NOT EXISTS medicine_stock.pharmacy_prices (
 
 CREATE INDEX IF NOT EXISTS pharmacy_prices_lookup_idx
   ON medicine_stock.pharmacy_prices (medicine_name_normalized, country_code);
+
+-- HU-24: listas guardadas de medicamentos para comparar precios (SCRUM-144)
+CREATE TABLE IF NOT EXISTS medicine_stock.saved_medicine_lists (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name VARCHAR(120) NOT NULL,
+  creation_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_update TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS saved_medicine_lists_user_idx
+  ON medicine_stock.saved_medicine_lists (user_id);
+
+CREATE TABLE IF NOT EXISTS medicine_stock.saved_medicine_list_items (
+  id BIGSERIAL PRIMARY KEY,
+  list_id BIGINT NOT NULL REFERENCES medicine_stock.saved_medicine_lists(id) ON DELETE CASCADE,
+  medicine_name VARCHAR(255) NOT NULL,
+  creation_date TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS saved_medicine_list_items_list_idx
+  ON medicine_stock.saved_medicine_list_items (list_id);
+
+-- HU-26 a HU-30: suscripciones, metodos de pago y facturacion
+CREATE SCHEMA IF NOT EXISTS billing;
+
+CREATE TABLE IF NOT EXISTS billing.plans (
+  id SERIAL PRIMARY KEY,
+  code VARCHAR(40) NOT NULL UNIQUE,
+  name VARCHAR(120) NOT NULL,
+  price NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+  currency VARCHAR(10) NOT NULL DEFAULT 'HNL',
+  billing_interval VARCHAR(20) NOT NULL DEFAULT 'mensual',
+  CONSTRAINT plans_billing_interval_check CHECK (billing_interval IN ('mensual', 'anual', 'ninguno'))
+);
+
+INSERT INTO billing.plans (code, name, price, currency, billing_interval)
+VALUES
+  ('free', 'Plan gratuito', 0.00, 'HNL', 'ninguno'),
+  ('premium', 'Plan premium', 199.00, 'HNL', 'mensual')
+ON CONFLICT (code) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS billing.subscriptions (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+  plan_id INT NOT NULL REFERENCES billing.plans(id),
+  status VARCHAR(20) NOT NULL DEFAULT 'activa',
+  autopay_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  billing_name VARCHAR(180),
+  billing_address VARCHAR(255),
+  billing_city VARCHAR(120),
+  billing_country VARCHAR(80),
+  billing_tax_id VARCHAR(60),
+  current_period_end TIMESTAMPTZ,
+  creation_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_update TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  cancellation_date TIMESTAMPTZ,
+  CONSTRAINT subscriptions_status_check CHECK (status IN ('activa', 'cancelada'))
+);
+
+CREATE TABLE IF NOT EXISTS billing.payment_methods (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  provider VARCHAR(40) NOT NULL DEFAULT 'manual',
+  token_reference TEXT NOT NULL,
+  brand VARCHAR(40),
+  last4 VARCHAR(4),
+  cardholder_name VARCHAR(180),
+  expiration_month SMALLINT,
+  expiration_year SMALLINT,
+  is_default BOOLEAN NOT NULL DEFAULT FALSE,
+  creation_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  removed_date TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS payment_methods_user_idx
+  ON billing.payment_methods (user_id) WHERE removed_date IS NULL;
+
+CREATE TABLE IF NOT EXISTS billing.payments (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  subscription_id BIGINT REFERENCES billing.subscriptions(id) ON DELETE SET NULL,
+  payment_method_id BIGINT REFERENCES billing.payment_methods(id) ON DELETE SET NULL,
+  amount NUMERIC(10, 2) NOT NULL,
+  currency VARCHAR(10) NOT NULL DEFAULT 'HNL',
+  status VARCHAR(20) NOT NULL DEFAULT 'pendiente',
+  description VARCHAR(255),
+  creation_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  processed_date TIMESTAMPTZ,
+  CONSTRAINT payments_status_check CHECK (status IN ('pendiente', 'completado', 'fallido'))
+);
+
+CREATE INDEX IF NOT EXISTS payments_user_idx
+  ON billing.payments (user_id, creation_date DESC);

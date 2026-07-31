@@ -12,6 +12,10 @@ const relationshipRoutes = require('./routes/relationship.routes');
 const caregiverRoutes = require('./routes/caregiver.routes');
 const profileRoutes = require('./routes/profile.routes');
 const activeMedications = require('./routes/activeMedications.routes');
+const subscriptionRoutes = require('./routes/subscription.routes');
+const paymentRoutes = require('./routes/payment.routes');
+const savedListRoutes = require('./routes/saved-list.routes');
+const pharmacySearchRoutes = require('./routes/pharmacy-search.routes');
 
 const app = express();
 
@@ -33,6 +37,10 @@ app.use('/relationships', relationshipRoutes);
 app.use('/caregivers', caregiverRoutes);
 app.use('/profile', profileRoutes);
 app.use('/medications', activeMedications);
+app.use('/subscription', subscriptionRoutes);
+app.use('/payments', paymentRoutes);
+app.use('/medicine-lists', savedListRoutes);
+app.use('/pharmacies', pharmacySearchRoutes);
 
 app.use((req, res) => {
   res.status(404).json({
