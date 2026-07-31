@@ -17,8 +17,11 @@ const addPaymentMethodSchema = z.object({
 });
 
 const processPaymentSchema = z.object({
-  paymentId: z.number().int().positive().optional(),
-  paymentMethodId: z.number().int().positive('Selecciona un metodo de pago.'),
+  // paymentId/paymentMethodId llegan como string cuando provienen de un
+  // BIGSERIAL serializado por pg (o de params de navegacion), por eso se
+  // usa coerce igual que con amount.
+  paymentId: z.coerce.number().int().positive().optional(),
+  paymentMethodId: z.coerce.number().int().positive('Selecciona un metodo de pago.'),
   amount: z.coerce.number().positive('Ingresa un monto valido.').optional(),
   currency: z.string().trim().length(3).optional(),
   description: z.string().trim().max(255).optional(),

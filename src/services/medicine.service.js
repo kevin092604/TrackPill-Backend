@@ -148,11 +148,13 @@ async function getMedicineDetail(medicineId, userId) {
     throw createHttpError(403, 'No tienes permiso para ver este medicamento.', 'unauthorized');
   }
 
-  // A. Calcular estimación de días de inventario restantes
+  // A. Calcular estimación de días de inventario restantes. Cada toma
+  // consume 1 unidad de inventario (ej. 1 comprimido), no `detail.dose`
+  // (que es la concentración por unidad, ej. 50mg) — mismo criterio que
+  // registerDoseStatus/recordStockMovement.
   const dailyDoses = 24 / detail.frequency;
-  const dailyDoseAmount = dailyDoses * detail.dose;
-  const daysRemaining = dailyDoseAmount > 0 
-    ? Math.round(detail.currentStock / dailyDoseAmount) 
+  const daysRemaining = dailyDoses > 0
+    ? Math.round(detail.currentStock / dailyDoses)
     : 0;
 
   // B. Obtener historial de cumplimiento semanal de este medicamento (Lunes a Domingo)
