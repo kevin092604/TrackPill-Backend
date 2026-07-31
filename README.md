@@ -395,13 +395,55 @@ Calcula y retorna para el paciente autenticado: el total de dosis programadas, c
       "dose": "1 tableta"
     },
     "weeklyAdherence": [
-      { "day": "Mon", "scheduled": 3, "completed": 3, "pending": 0, "percentage": 100 },
-      { "day": "Tue", "scheduled": 3, "completed": 2, "pending": 1, "percentage": 66.7 },
-      { "day": "Wed", "scheduled": 4, "completed": 4, "pending": 0, "percentage": 100 },
-      { "day": "Thu", "scheduled": 4, "completed": 2, "pending": 2, "percentage": 50 },
-      { "day": "Fri", "scheduled": 3, "completed": 3, "pending": 0, "percentage": 100 },
-      { "day": "Sat", "scheduled": 2, "completed": 2, "pending": 0, "percentage": 100 },
-      { "day": "Sun", "scheduled": 2, "completed": 1, "pending": 1, "percentage": 50 }
+      {
+        "day": "Mon",
+        "scheduled": 3,
+        "completed": 3,
+        "pending": 0,
+        "percentage": 100
+      },
+      {
+        "day": "Tue",
+        "scheduled": 3,
+        "completed": 2,
+        "pending": 1,
+        "percentage": 66.7
+      },
+      {
+        "day": "Wed",
+        "scheduled": 4,
+        "completed": 4,
+        "pending": 0,
+        "percentage": 100
+      },
+      {
+        "day": "Thu",
+        "scheduled": 4,
+        "completed": 2,
+        "pending": 2,
+        "percentage": 50
+      },
+      {
+        "day": "Fri",
+        "scheduled": 3,
+        "completed": 3,
+        "pending": 0,
+        "percentage": 100
+      },
+      {
+        "day": "Sat",
+        "scheduled": 2,
+        "completed": 2,
+        "pending": 0,
+        "percentage": 100
+      },
+      {
+        "day": "Sun",
+        "scheduled": 2,
+        "completed": 1,
+        "pending": 1,
+        "percentage": 50
+      }
     ]
   }
 }
@@ -785,6 +827,210 @@ Registra un nuevo medicamento con su respectiva dosificación, stock inicial, um
   }
 }
 ```
+
+### Obtener listado de medicamentos (con búsqueda)
+
+`GET /medicines`
+
+Obtiene todos los medicamentos registrados para el paciente autenticado. Soporta coincidencia parcial por nombre utilizando el parámetro de búsqueda `?search=texto`.
+
+**Ejemplo de Petición:**
+`GET /medicines?search=para`
+
+**Ejemplo de Respuesta:**
+
+```json
+{
+  "success": true,
+  "medicines": [
+    {
+      "id": "1",
+      "name": "Paracetamol 500mg",
+      "image": null,
+      "dose": 1,
+      "frequency": 8,
+      "timeUnit": "horas",
+      "pharmaceuticalForm": "tableta",
+      "currentStock": 30,
+      "lowStockThreshold": 5,
+      "lowStockAlertEnabled": true,
+      "nextScheduledTime": "2026-07-19T08:00:00.000Z"
+    }
+  ]
+}
+```
+
+### Obtener detalle completo de un medicamento
+
+`GET /medicines/:id`
+
+Devuelve el detalle de un medicamento específico del paciente autenticado, incluyendo su presentación, planificación semanal de horarios, estimación de días de stock restantes (`daysRemaining`) e historial de cumplimiento de la semana actual (`weeklyCompliance`).
+
+**Ejemplo de Petición:**
+`GET /medicines/1`
+
+**Ejemplo de Respuesta:**
+
+```json
+{
+  "success": true,
+  "medicine": {
+    "id": "1",
+    "name": "Paracetamol 500mg",
+    "image": null,
+    "pharmaceuticalFormId": 1,
+    "pharmaceuticalFormName": "tableta",
+    "currentStock": 30,
+    "dose": 1,
+    "frequency": 8,
+    "timeUnitId": 1,
+    "timeUnitName": "horas",
+    "startTime": "08:00:00",
+    "scheduleId": 2,
+    "description": "Tomar después de las comidas (Para el dolor)",
+    "lowStockAlertEnabled": true,
+    "lowStockThreshold": 5,
+    "userId": "1",
+    "schedule": {
+      "startDate": null,
+      "endDate": null,
+      "monday": true,
+      "tuesday": false,
+      "wednesday": true,
+      "thursday": false,
+      "friday": true,
+      "saturday": false,
+      "sunday": false
+    },
+    "daysRemaining": 10,
+    "weeklyCompliance": [
+      { "day": "Lun", "status": "completed" },
+      { "day": "Mar", "status": "none" },
+      { "day": "Mié", "status": "completed" },
+      { "day": "Jue", "status": "none" },
+      { "day": "Vie", "status": "completed" },
+      { "day": "Sáb", "status": "none" },
+      { "day": "Dom", "status": "none" }
+    ]
+  }
+}
+```
+
+## Endpoint listado de medicamentos activos (vista móvil)
+
+`GET /medications`
+
+Obtiene la lista de medicamentos activos del usuario autenticado, formateada específicamente para renderizar las tarjetas en la vista de "Mis medicinas" de la aplicación móvil. Soporta coincidencia parcial por nombre utilizando el parámetro de búsqueda opcional `?search=texto`.
+
+El endpoint calcula dinámicamente el texto de la frecuencia y busca en la base de datos la próxima dosis pendiente que sea mayor a la hora actual (`NOW()`), devolviéndola en formato local de 12 horas. Si no hay dosis futuras pendientes, retorna `null`.
+
+### Ejemplo de Petición:
+`GET /medications?search=omeprazol`
+
+### Ejemplo de Respuesta:
+
+```json
+{
+  "success": true,
+  "medications": [
+    {
+      "id": 1,
+      "name": "Losartán 50mg",
+      "doseAmount": 1,
+      "doseUnit": "tableta",
+      "frequencyLabel": "cada 24 horas",
+      "nextDoseLabel": "7:00 a.m."
+    },
+    {
+      "id": 2,
+      "name": "Omeprazol 20mg",
+      "doseAmount": 1,
+      "doseUnit": "cápsula",
+      "frequencyLabel": "cada 12 horas",
+      "nextDoseLabel": "10:00 p.m."
+    }
+  ]
+}
+```
+
+## Endpoint editar medicamento
+
+`PUT /medicines/:id`
+
+Actualiza los datos de un medicamento existente. Valida de forma estricta que el medicamento pertenezca al usuario autenticado. Soporta actualizaciones parciales o totales (puedes enviar solo los campos que necesitas cambiar o el formulario completo).
+
+Si se envían datos dentro del objeto `schedule`, también actualizará la planificación de días de la semana de manera dinámica.
+
+### Ejemplo de Petición:
+
+```json
+{
+  "name": "Losartán 100mg",
+  "currentStock": 25,
+  "dose": 1.5,
+  "lowStockAlertEnabled": true,
+  "lowStockThreshold": 5,
+  "schedule": {
+    "monday": true,
+    "wednesday": true,
+    "friday": true
+  }
+}
+```
+
+
+### Obtener disponibilidad en farmacias cercanas
+`GET /medicines/:id/pharmacies`
+
+Retorna la lista de farmacias reales más cercanas (dentro de un radio de 5km) basadas en latitud y longitud, con su respectivo precio y divisa de contingencia o reportado por crowd-sourcing (aislado por país).
+
+**Ejemplo de Petición:**
+`GET /medicines/1/pharmacies?lat=14.0818&lng=-87.2068`
+
+**Ejemplo de Respuesta:**
+```json
+{
+  "success": true,
+  "pharmacies": [
+    {
+      "placeId": "mock_kielsa_1",
+      "name": "Farmacias Kielsa",
+      "latitude": 14.0838,
+      "longitude": -87.2078,
+      "address": "Bulevar Morazán, Tegucigalpa, Honduras",
+      "countryCode": "HN",
+      "price": 34.00,
+      "currency": "HNL",
+      "source": "estimated"
+    },
+    {
+      "placeId": "mock_siman_2",
+      "name": "Farmacias Simán",
+      "latitude": 14.0788,
+      "longitude": -87.2048,
+      "address": "Colonia Palmira, Tegucigalpa, Honduras",
+      "countryCode": "HN",
+      "price": 46.00,
+      "currency": "HNL",
+      "source": "estimated"
+    }
+  ]
+}
+```
+
+#### Descripción de propiedades de la respuesta:
+* **`placeId`** (`string`): Identificador único de la farmacia provisto por OpenStreetMap o generado en el mock.
+* **`name`** (`string`): Nombre de la farmacia.
+* **`latitude`** (`number`): Latitud geográfica de la sucursal.
+* **`longitude`** (`number`): Longitud geográfica de la sucursal.
+* **`address`** (`string`): Dirección física de la sucursal.
+* **`countryCode`** (`string`): Código ISO de dos letras del país de la farmacia. Valores posibles: `HN`, `SV`, `MX`, `GT`, etc.
+* **`price`** (`number`): Precio calculado o consultado del medicamento.
+* **`currency`** (`string`): Código de moneda local asociado al país. Valores posibles: `HNL`, `USD`, `MXN`, `GTQ`, etc.
+* **`source`** (`string`): El origen del precio devuelto. Valores posibles:
+  * **`real`**: Precio real cargado de forma directa para esa sucursal en particular.
+  * **`crowd_sourced`**: Precio promedio calculado dinámicamente a partir de los reportes globales de otros usuarios en el mismo país.
+  * **`estimated`**: Precio simulado por el algoritmo en base al precio semilla y el hash determinista de la farmacia (fallback).
 
 ## Tareas Programadas (Jobs)
 

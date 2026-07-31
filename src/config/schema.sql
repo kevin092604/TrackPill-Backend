@@ -270,3 +270,19 @@ CREATE TABLE IF NOT EXISTS medicine_stock.notifications (
 
 ALTER TABLE medicine_stock.medicines
   ADD COLUMN IF NOT EXISTS low_stock_alert_sent BOOLEAN NOT NULL DEFAULT FALSE;
+
+CREATE TABLE IF NOT EXISTS medicine_stock.pharmacy_prices (
+  id BIGSERIAL PRIMARY KEY,
+  medicine_name_normalized VARCHAR(255) NOT NULL,
+  pharmacy_place_id VARCHAR(255) NOT NULL,
+  pharmacy_name VARCHAR(255) NOT NULL,
+  price NUMERIC(10, 2) NOT NULL,
+  currency VARCHAR(10) NOT NULL DEFAULT 'HNL',
+  country_code VARCHAR(5) NOT NULL DEFAULT 'HN',
+  source VARCHAR(50) NOT NULL DEFAULT 'estimated',
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT check_source CHECK (source IN ('real', 'crowd_sourced', 'estimated'))
+);
+
+CREATE INDEX IF NOT EXISTS pharmacy_prices_lookup_idx
+  ON medicine_stock.pharmacy_prices (medicine_name_normalized, country_code);
