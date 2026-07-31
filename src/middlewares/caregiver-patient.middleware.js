@@ -26,6 +26,13 @@ async function checkCaregiverPatientRelationship(req, res, next) {
             throw createHttpError(400, 'El ID del paciente es requerido.', 'patient_id_required');
         }
 
+        // Un paciente viendo su propio calendario/dosis no necesita una
+        // relacion de cuidador consigo mismo.
+        if (String(caregiverId) === String(patientId)) {
+            req.relationship = null;
+            return next();
+        }
+
         const relationship = await CaregiverRelationship.findActiveRelation(caregiverId, patientId);
 
         if (!relationship) {

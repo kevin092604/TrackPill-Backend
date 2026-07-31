@@ -4,6 +4,12 @@ const db = require('../config/db');
 const { createHttpError } = require('../utils/helpers');
 
 async function assertActiveAcceptedRelationship(caregiverId, patientId) {
+  // Un paciente consultando su propia informacion no necesita una relacion
+  // de cuidador consigo mismo.
+  if (String(caregiverId) === String(patientId)) {
+    return { active: true, relationshipLabel: null, status: 'aceptada' };
+  }
+
   const relationship = await CaregiverRelationship.findOpenBetween(caregiverId, patientId);
 
   if (!relationship || relationship.status !== 'aceptada') {
@@ -135,6 +141,7 @@ async function getPatientDoses(caregiverId, patientId, date) {
     `SELECT
         ml.id,
         ml.scheduled_time,
+        m.id AS medicine_id,
         m.name AS medicine_name,
         ds.name AS status_name
      FROM medicine_stock.medication_logs ml
@@ -148,6 +155,7 @@ async function getPatientDoses(caregiverId, patientId, date) {
 
   const doses = result.rows.map((row) => ({
     id: row.id,
+    medicineId: row.medicine_id,
     medicineName: row.medicine_name,
     scheduledTime: new Date(row.scheduled_time).toLocaleTimeString('es-HN', {
       hour: 'numeric',

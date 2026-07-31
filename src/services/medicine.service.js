@@ -332,6 +332,24 @@ async function getMedicationHistory(userId, { from, to } = {}) {
 }
 
 /**
+ * Catalogo de formas farmaceuticas y unidades de tiempo para los
+ * selectores del formulario de registro/edicion de medicamento. Sin esto
+ * el frontend no tiene forma de conocer los IDs reales que requiere
+ * registerMedicineSchema (pharmaceuticalFormId, timeUnitId).
+ */
+async function getCatalog() {
+  const [formsResult, timeUnitsResult] = await Promise.all([
+    db.query('SELECT id, name FROM medicine_stock.pharmaceutical_forms ORDER BY name ASC'),
+    db.query('SELECT id, name, code FROM medicine_stock.time_units ORDER BY id ASC'),
+  ]);
+
+  return {
+    pharmaceuticalForms: formsResult.rows.map((row) => ({ id: row.id, name: row.name })),
+    timeUnits: timeUnitsResult.rows.map((row) => ({ id: row.id, name: row.name, code: row.code })),
+  };
+}
+
+/**
  * Sube la foto de un medicamento (SCRUM-113). No existia ningun endpoint
  * para esto; registerMedicine solo aceptaba una URL de texto en `image`.
  */
@@ -370,4 +388,5 @@ module.exports = {
   registerDoseStatus,
   getMedicationHistory,
   uploadMedicinePhoto,
+  getCatalog,
 };

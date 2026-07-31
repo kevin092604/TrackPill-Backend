@@ -133,6 +133,16 @@ async function uploadPhoto(req, res, next) {
   }
 }
 
+async function getCatalog(req, res, next) {
+  try {
+    const catalog = await medicineService.getCatalog();
+
+    res.status(200).json({ success: true, ...catalog });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   registerMedicine,
   getMedicines,
@@ -142,4 +152,5 @@ module.exports = {
   registerDoseStatus,
   getMedicationHistory,
   uploadPhoto,
+  getCatalog,
 };

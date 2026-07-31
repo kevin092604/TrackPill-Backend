@@ -15,6 +15,7 @@ router.use(authMiddleware);
 
 router.post('/', medicineController.registerMedicine);
 router.get('/', medicineController.getMedicines);
+router.get('/catalog', medicineController.getCatalog);
 router.get('/history', medicineController.getMedicationHistory);
 router.get('/:id', medicineController.getMedicineDetail);
 router.put('/:id', medicineController.updateMedicine);
