@@ -265,4 +265,8 @@ CREATE TABLE IF NOT EXISTS medicine_stock.notifications (
   medicine_id BIGINT REFERENCES medicine_stock.medicines(id) ON DELETE CASCADE,
   dose_id BIGINT REFERENCES medicine_stock.medication_logs(id) ON DELETE CASCADE,
   -- TODO: Agregar un check para verificar los tipos de notificaciones
+  CONSTRAINT notifications_users_check CHECK (user_id <> patient_id) -- verifica que no sean la misma persona
 );
+
+ALTER TABLE medicine_stock.medicines
+  ADD COLUMN IF NOT EXISTS low_stock_alert_sent BOOLEAN NOT NULL DEFAULT FALSE;
