@@ -43,7 +43,12 @@ async function generateDailyDoses() {
         let generatedCount = 0;
 
         for (const med of medicines) {
-            const scheduleTime = `${tomorrowDateString}T${med.schedule_hour}`;
+            // med.schedule_hour es la hora local que el paciente eligio (ej.
+            // "08:00", pensada en horario de Honduras, UTC-6 todo el ano sin
+            // horario de verano). Sin el offset explicito, Postgres la
+            // interpreta como UTC al guardarla en scheduled_time
+            // (TIMESTAMPTZ), desfasando la dosis 6 horas de la hora real.
+            const scheduleTime = `${tomorrowDateString}T${med.schedule_hour}-06:00`;
 
             const insertResult = await pool.query(
                 `INSERT INTO medicine_stock.medication_logs (medicine_id, scheduled_time, status_id)

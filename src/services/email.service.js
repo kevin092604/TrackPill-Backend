@@ -24,6 +24,50 @@ async function sendPasswordRecoveryCode(email, code) {
   });
 }
 
+/**
+ * Notifica por correo a quien inicio una solicitud de relacion cuando el
+ * destinatario responde. Se llamaba desde relationship.service.js pero
+ * nunca se habia implementado: cada aceptacion/rechazo de solicitud
+ * fallaba con un 500 aunque el cambio ya se hubiera guardado en la BD.
+ */
+async function sendRelationshipResponseNotification({ email, responderName, status }) {
+  const accepted = status === 'aceptada';
+  const heading = accepted ? 'Solicitud aceptada' : 'Solicitud rechazada';
+  const message = accepted
+    ? `${responderName} acepto tu solicitud de vinculo en TrackPill.`
+    : `${responderName} rechazo tu solicitud de vinculo en TrackPill.`;
+
+  if (!isSmtpConfigured()) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('El servicio de correos no esta configurado.');
+    }
+
+    console.info(`[relationship-response] ${email}: ${message}`);
+    return {
+      accepted: [email],
+      devMode: true,
+    };
+  }
+
+  return getTransporter().sendMail({
+    from: getFromAddress(),
+    html: `
+      <!doctype html>
+      <html lang="es">
+        <body style="margin:0;background:#f4f8fb;font-family:Arial,sans-serif;color:#522d59;">
+          <div style="max-width:520px;margin:32px auto;padding:28px;background:#ffffff;border-radius:16px;border:1px solid #d9e7f2;">
+            <h1 style="margin:0 0 16px;color:#3f8ccb;font-size:24px;">${heading}</h1>
+            <p style="margin:0;line-height:1.6;color:#5f5a5c;">${message}</p>
+          </div>
+        </body>
+      </html>
+    `,
+    subject: `TrackPill: ${heading}`,
+    text: message,
+    to: email,
+  });
+}
+
 async function sendCodeEmail({ code, email, heading, logLabel, message, subject }) {
   if (!isSmtpConfigured()) {
     if (process.env.NODE_ENV === 'production') {
@@ -124,4 +168,5 @@ function buildCodeHtml({ code, heading, message }) {
 module.exports = {
   sendEmailVerificationCode,
   sendPasswordRecoveryCode,
+  sendRelationshipResponseNotification,
 };

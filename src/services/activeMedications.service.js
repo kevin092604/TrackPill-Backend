@@ -28,10 +28,11 @@ async function getActiveMedications(userId, search = '') {
     let nextDoseLabel = null;
     if (nextDoseResult.rows.length > 0) {
       const dateObj = new Date(nextDoseResult.rows[0].scheduled_time);
-      nextDoseLabel = dateObj.toLocaleTimeString('es-HN', { 
-        hour: 'numeric', 
-        minute: '2-digit', 
-        hour12: true 
+      nextDoseLabel = dateObj.toLocaleTimeString('es-HN', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: 'America/Tegucigalpa',
       });
     }
 

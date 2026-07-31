@@ -80,7 +80,11 @@ async function recordStockMovement(medicineId, amount, movementTypeId, client = 
                         userId: updatedMedicine.userId,
                         type: 'low_inventory',
                         message,
-                        patientId: updatedMedicine.userId,
+                        // patientId se deja null: es la notificacion del propio
+                        // paciente sobre su propio medicamento, no tiene sentido
+                        // referenciarlo como "paciente relacionado" a si mismo,
+                        // y ademas viola el CHECK user_id <> patient_id.
+                        patientId: null,
                         medicineId: updatedMedicine.id,
                         doseId: null
                     },

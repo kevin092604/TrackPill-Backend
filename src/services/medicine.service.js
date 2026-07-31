@@ -311,9 +311,11 @@ async function registerDoseStatus(medicineId, doseId, userId, payload) {
       const movementTypeId = movementTypeResult.rows[0]?.id;
 
       if (movementTypeId) {
+        // Cada toma consume 1 unidad de inventario (ej. 1 comprimido), no
+        // `medicine.dose` (que es la concentracion por unidad, ej. 50mg).
         updatedMedicine = await inventoryService.recordStockMovement(
           medicineId,
-          medicine.dose,
+          1,
           movementTypeId,
           client,
         );

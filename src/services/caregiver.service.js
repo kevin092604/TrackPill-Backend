@@ -161,6 +161,7 @@ async function getPatientDoses(caregiverId, patientId, date) {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
+      timeZone: 'America/Tegucigalpa',
     }),
     status: row.status_name,
   }));

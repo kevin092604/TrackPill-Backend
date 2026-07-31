@@ -68,8 +68,8 @@ function validateRegistrationData(payload) {
   const result = registrationSchema.safeParse(payload);
   
   if (!result.success) {
-    
-    const firstError = result.error.errors[0].message;
+
+    const firstError = result.error.issues[0].message;
     throw createHttpError(422, firstError, 'validation_error');
   }
   

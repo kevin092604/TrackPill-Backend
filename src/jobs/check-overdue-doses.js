@@ -50,14 +50,14 @@ async function checkOverdueDoses() {
                 if (log.status_id !== 4) {
                     newStatusId = 4; //Omitida
                     notificationType = 'dosis_omitida';
-                    notificationMessage = `El paciente ${log.patient_name} omitió tomar su dosis de ${log.medicine_name} programada para las ${scheduledTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}.`;
+                    notificationMessage = `El paciente ${log.patient_name} omitió tomar su dosis de ${log.medicine_name} programada para las ${scheduledTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'America/Tegucigalpa' })}.`;
 
                 }
             } else if (diffMinutes > 10) {
                 if (log.status_id === 1) {
                     newStatusId = 3; // Retrasada
                     notificationType = 'dosis_retrasada';
-                    notificationMessage = `El paciente ${log.patient_name} tiene un retraso en tomar su dosis de ${log.medicine_name} programada para las ${scheduledTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`;
+                    notificationMessage = `El paciente ${log.patient_name} tiene un retraso en tomar su dosis de ${log.medicine_name} programada para las ${scheduledTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'America/Tegucigalpa' })}.`;
                 }
             }
 
