@@ -3,7 +3,21 @@ const { z } = require('zod');
 const db = require('../config/db');
 const Schedule = require('../models/schedule.model');
 const Medicine = require('../models/medicine.model');
+const MedicationLog = require('../models/medication-log.model');
+const inventoryService = require('./inventory.service');
+const storageService = require('./storage.service');
 const { createHttpError } = require('../utils/helpers');
+
+const ALLOWED_PHOTO_MIME_TYPES = new Set(['image/bmp', 'image/jpeg', 'image/png']);
+
+const DOSE_STATUS_IDS = { tomada: 2, omitida: 4 };
+const TAKE_MOVEMENT_TYPE = 'toma';
+
+const registerDoseSchema = z.object({
+  status: z.enum(['tomada', 'omitida'], {
+    errorMap: () => ({ message: 'El estado debe ser "tomada" u "omitida".' }),
+  }),
+});
 
 const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
@@ -252,9 +266,108 @@ async function updateMedicine(medicineId, userId, payload) {
   return updatedMedicine;
 }
 
+/**
+ * Marca una dosis (medication_log) como tomada u omitida. Si se marca como
+ * tomada, descuenta el stock mediante inventory.service.js (que a su vez
+ * dispara la alerta de inventario bajo si corresponde). No existia ningun
+ * endpoint que llamara a esto antes; recordStockMovement estaba huerfano.
+ */
+async function registerDoseStatus(medicineId, doseId, userId, payload) {
+  const result = registerDoseSchema.safeParse(payload);
+  if (!result.success) {
+    throw createHttpError(422, result.error.issues[0].message, 'validation_error');
+  }
+
+  const medicine = await Medicine.findById(medicineId);
+  if (!medicine) {
+    throw createHttpError(404, 'Medicamento no encontrado.', 'medicine_not_found');
+  }
+  if (medicine.userId !== userId) {
+    throw createHttpError(403, 'No tienes permiso para modificar este medicamento.', 'unauthorized');
+  }
+
+  const dose = await MedicationLog.findByIdForMedicine(doseId, medicineId);
+  if (!dose) {
+    throw createHttpError(404, 'Dosis no encontrada.', 'dose_not_found');
+  }
+
+  const statusId = DOSE_STATUS_IDS[result.data.status];
+
+  return db.transaction(async (client) => {
+    const updatedLog = await MedicationLog.updateStatus(
+      doseId,
+      statusId,
+      result.data.status === 'tomada' ? new Date() : null,
+      client,
+    );
+
+    let updatedMedicine = medicine;
+
+    if (result.data.status === 'tomada') {
+      const movementTypeResult = await client.query(
+        'SELECT id FROM medicine_stock.movement_types WHERE name = $1',
+        [TAKE_MOVEMENT_TYPE],
+      );
+      const movementTypeId = movementTypeResult.rows[0]?.id;
+
+      if (movementTypeId) {
+        updatedMedicine = await inventoryService.recordStockMovement(
+          medicineId,
+          medicine.dose,
+          movementTypeId,
+          client,
+        );
+      }
+    }
+
+    return { dose: updatedLog, medicine: updatedMedicine };
+  });
+}
+
+/**
+ * Historial de dosis del usuario agrupado por dia (HU-18 / SCRUM-126).
+ */
+async function getMedicationHistory(userId, { from, to } = {}) {
+  return MedicationLog.findHistoryByUserId(userId, { from, to });
+}
+
+/**
+ * Sube la foto de un medicamento (SCRUM-113). No existia ningun endpoint
+ * para esto; registerMedicine solo aceptaba una URL de texto en `image`.
+ */
+async function uploadMedicinePhoto(medicineId, userId, file) {
+  if (!file) {
+    throw createHttpError(400, 'La foto del medicamento es requerida.', 'missing_medicine_photo');
+  }
+
+  if (!ALLOWED_PHOTO_MIME_TYPES.has(file.mimetype)) {
+    throw createHttpError(
+      422,
+      'Formato no soportado. Usa .png, .jpeg, .jpg o .bmp.',
+      'invalid_photo_format',
+    );
+  }
+
+  const medicine = await Medicine.findById(medicineId);
+  if (!medicine) {
+    throw createHttpError(404, 'Medicamento no encontrado.', 'medicine_not_found');
+  }
+  if (medicine.userId !== userId) {
+    throw createHttpError(403, 'No tienes permiso para editar este medicamento.', 'unauthorized');
+  }
+
+  const imageUrl = await storageService.uploadPublicFile(`medicine-photos/${medicineId}`, file);
+  const updatedMedicine = await Medicine.update(medicineId, { image: imageUrl });
+
+  return { medicine: updatedMedicine };
+}
+
 module.exports = {
   registerMedicine,
   getMedicines,
   getMedicineDetail,
-  updateMedicine
+  updateMedicine,
+  registerDoseStatus,
+  getMedicationHistory,
+  uploadMedicinePhoto,
 };

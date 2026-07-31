@@ -97,10 +97,49 @@ async function getNearbyPharmacies(req, res, next) {
   }
 }
 
+async function registerDoseStatus(req, res, next) {
+  try {
+    const result = await medicineService.registerDoseStatus(
+      req.params.id,
+      req.params.doseId,
+      req.user.id,
+      req.body,
+    );
+
+    res.status(200).json({ success: true, ...result });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function getMedicationHistory(req, res, next) {
+  try {
+    const { from, to } = req.query;
+    const history = await medicineService.getMedicationHistory(req.user.id, { from, to });
+
+    res.status(200).json({ success: true, history });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function uploadPhoto(req, res, next) {
+  try {
+    const result = await medicineService.uploadMedicinePhoto(req.params.id, req.user.id, req.file);
+
+    res.status(200).json({ success: true, ...result });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   registerMedicine,
   getMedicines,
   getMedicineDetail,
   updateMedicine,
   getNearbyPharmacies,
+  registerDoseStatus,
+  getMedicationHistory,
+  uploadPhoto,
 };

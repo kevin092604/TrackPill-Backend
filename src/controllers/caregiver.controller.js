@@ -4,9 +4,9 @@ const caregiverService = require('../services/caregiver.service');
 /**
  * Función que permite al cuidador autenticado obtener el calendario del paciente al que está asignado
  * @author Jesús Zepeda
- * @version 0.1.0
+ * @version 0.2.0
  * @since 2026/07/11
- * @date 2026/07/11
+ * @date 2026/07/31
  * @param {Object} req Objeto de petición
  * @param {Object} res Objeto de respuesta
  * @param {Function} next Función de middleware
@@ -26,18 +26,12 @@ async function getPatientCalendar(req, res, next) {
             );
         }
 
-        // TODO: Implementar el calendario
-        // Mientras no se implemente el calendario, se devuelve una respuesta vacía
-        res.status(200).json(
-            {
-                success: true,
-                data: {
-                    patientId: Number(patientId),
-                    month: month || new Date().toISOString().slice(0, 7),
-                    events: []
-                }
-            }
-        );
+        const data = await caregiverService.getPatientCalendar(req.user.id, patientId, month);
+
+        res.status(200).json({
+            success: true,
+            data,
+        });
     } catch (error) {
         next(error);
     }
@@ -46,9 +40,9 @@ async function getPatientCalendar(req, res, next) {
 /**
  * Función que permite obtener el detalle diario de dosis y tomas de un paciente.
  * @author Jesús Zepeda
- * @version 0.1.0
+ * @version 0.2.0
  * @since 2026/07/12
- * @date 2026/07/12
+ * @date 2026/07/31
  * @param {Object} req Objeto de petición
  * @param {Object} res Objeto de respuesta
  * @param {Function} next Función de middleware
@@ -67,17 +61,12 @@ async function getPatientDoses(req, res, next) {
             );
         }
 
-        //Mock de respuesta para la lista de dosis diaria
-        res.status(200).json(
-            {
-                success: true,
-                data: {
-                    patientId: Number(patientId),
-                    date: date || new Date().toISOString().slice(0,10), //Fecha actual si no se proporciona
-                    doses: []
-                }
-            }
-        );
+        const data = await caregiverService.getPatientDoses(req.user.id, patientId, date);
+
+        res.status(200).json({
+            success: true,
+            data,
+        });
     } catch (error) {
         next(error);
     }
@@ -117,9 +106,9 @@ async function getPatientSummary(req, res, next) {
 /**
  * Controlador para obtener la lista de medicamentos del paciente
  * @author agblandin@unah.hn
- * @version 0.1.1
+ * @version 0.1.2
  * @since 2026/07/12
- * @date 2026/07/12
+ * @date 2026/07/31
  * @param {Object} req Objeto de petición
  * @param {Object} res Objeto de respuesta
  * @param {Function} next Función de middleware
@@ -127,8 +116,8 @@ async function getPatientSummary(req, res, next) {
 async function getPatientMedicines(req, res, next) {
     try {
         const { patientId } = req.params;
-        
-        const data = await caregiverService.getPatientMedicines(patientId);
+
+        const data = await caregiverService.getPatientMedicines(req.user.id, patientId);
 
         res.status(200).json({
             success: true,

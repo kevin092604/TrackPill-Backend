@@ -198,6 +198,42 @@ CREATE TABLE IF NOT EXISTS medicine_stock.movement_types (
   factor INT NOT NULL
 );
 
+INSERT INTO medicine_stock.measurement_units (name, code)
+VALUES
+  ('Miligramos', 'mg'),
+  ('Mililitros', 'ml'),
+  ('Microgramos', 'mcg'),
+  ('Unidades internacionales', 'UI'),
+  ('Gotas', 'gotas')
+ON CONFLICT (code) DO NOTHING;
+
+INSERT INTO medicine_stock.pharmaceutical_forms (name, measurement_unit_id)
+SELECT v.name, mu.id
+FROM (VALUES
+  ('Comprimido', 'mg'),
+  ('Cápsula', 'mg'),
+  ('Jarabe', 'ml'),
+  ('Inyección', 'ml'),
+  ('Gotas', 'gotas'),
+  ('Otro', 'mg')
+) AS v(name, unit_code)
+JOIN medicine_stock.measurement_units mu ON mu.code = v.unit_code
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO medicine_stock.time_units (name, code)
+VALUES
+  ('Horas', 'horas'),
+  ('Días', 'dias'),
+  ('Semanas', 'semanas')
+ON CONFLICT (code) DO NOTHING;
+
+INSERT INTO medicine_stock.movement_types (name, factor)
+VALUES
+  ('toma', -1),
+  ('ajuste_manual', 1),
+  ('reposicion', 1)
+ON CONFLICT (name) DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS medicine_stock.schedules (
   id SERIAL PRIMARY KEY,
   start_date DATE,

@@ -217,14 +217,16 @@ async function findPendingIncomingRequests(userId, client = db) {
  * @since 2026/07/07
  * @date 2026/07/07
  */
-async function markAsDeleted(id, client = db) {
-  const result = await client.query(
-    `UPDATE auth.caregiver_relationships
-     SET status = 'eliminada', active = FALSE, last_status_change = NOW()
-     WHERE id = $1 RETURNING *`,
+/**
+ * Elimina definitivamente el vinculo (SCRUM-81 pide una eliminacion
+ * definitiva; pausar/reactivar ya cubre el caso reversible, por lo que
+ * "eliminar" no debe dejar la fila como un estado mas).
+ */
+async function hardDelete(id, client = db) {
+  await client.query(
+    'DELETE FROM auth.caregiver_relationships WHERE id = $1',
     [id],
   );
-  return mapCaregiverRelationship(result.rows[0]);
 }
 
 /**
@@ -262,7 +264,7 @@ module.exports = {
   updateResponse,
   findAcceptedByDirection,
   findPendingIncomingRequests,
-  markAsDeleted,
+  hardDelete,
   findActiveRelation,
 };
 

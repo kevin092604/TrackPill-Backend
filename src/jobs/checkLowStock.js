@@ -46,10 +46,13 @@ async function checkLowStock() {
 
         for (const alert of alerts) {
 
+            // Mismo tipo 'low_inventory' que usa inventory.service.js (SCRUM-90)
+            // para que el frontend no tenga que mapear dos taxonomias distintas
+            // para la misma alerta.
             const patientMessage = `Tu inventario de ${alert.medicine_name} está bajo. Quedan pocas dosis.`;
             await client.query(
                 `INSERT INTO medicine_stock.notifications (user_id, type, message, patient_id, medicine_id)
-                 VALUES ($1, 'low_stock_patient', $2, NULL, $3)`,
+                 VALUES ($1, 'low_inventory', $2, NULL, $3)`,
                 [alert.patient_id, patientMessage, alert.medicine_id]
             );
             notificationsGenerated++;
@@ -60,7 +63,7 @@ async function checkLowStock() {
                 for (const caregiverId of caregivers) {
                     await client.query(
                         `INSERT INTO medicine_stock.notifications (user_id, type, message, patient_id, medicine_id)
-                         VALUES ($1, 'low_stock_caregiver', $2, $3, $4)`,
+                         VALUES ($1, 'low_inventory', $2, $3, $4)`,
                         [caregiverId, caregiverMessage, alert.patient_id, alert.medicine_id]
                     );
                     notificationsGenerated++;

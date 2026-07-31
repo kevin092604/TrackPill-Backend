@@ -26,8 +26,7 @@ async function generateDailyDoses() {
                 m.start_time AS schedule_hour
              FROM medicine_stock.medicines m
              JOIN medicine_stock.schedules s ON m.schedule_id = s.id
-             WHERE m.active = TRUE
-                AND s.${tomorrowDayName} = TRUE
+             WHERE s.${tomorrowDayName} = TRUE
                 AND (s.start_date IS NULL OR s.start_date <= $1)
                 AND (s.end_date IS NULL OR s.end_date >= $1)`,
             [tomorrowDateString]
@@ -62,16 +61,20 @@ async function generateDailyDoses() {
         console.info(`[JOB] Proceso terminado con éxito. Dosis generadas: ${generatedCount}`);
     } catch (error) {
         console.error('[JOB] Error crítico durante la generación diaria de dosis:', error);
-    } finally {
-        await pool.end();
-        console.info('[JOB] Conexión de base de datos cerrada.');
+        throw error;
     }
 }
 
 if (require.main === module) {
+    // Solo se cierra el pool compartido cuando el job corre como script
+    // independiente (node src/jobs/generate-daily-doses.js). Si se cerrara
+    // dentro de generateDailyDoses(), un scheduler que lo invoque desde el
+    // proceso del servidor dejaria sin conexion a toda la API despues de la
+    // primera ejecucion.
     generateDailyDoses()
+        .then(() => pool.end())
         .then(() => process.exit(0))
-        .catch(() => process.exit(1));
+        .catch(() => pool.end().finally(() => process.exit(1)));
 }
 
 module.exports = generateDailyDoses;

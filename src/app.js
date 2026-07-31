@@ -16,6 +16,7 @@ const subscriptionRoutes = require('./routes/subscription.routes');
 const paymentRoutes = require('./routes/payment.routes');
 const savedListRoutes = require('./routes/saved-list.routes');
 const pharmacySearchRoutes = require('./routes/pharmacy-search.routes');
+const { startScheduledJobs } = require('./jobs/scheduler');
 
 const app = express();
 
@@ -68,6 +69,7 @@ if (require.main === module) {
     .then(() => {
       app.listen(port, () => {
         console.log(`TrackPill API escuchando en puerto ${port}`);
+        startScheduledJobs();
       });
     })
     .catch((error) => {

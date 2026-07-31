@@ -365,15 +365,11 @@ async function deleteRelationship(relationshipId, currentUser) {
     throw createHttpError(403, 'No tienes permiso para eliminar este vínculo.', 'relationship_access_forbidden');
   }
 
-  if (relationship.status === 'eliminada') {
-    throw createHttpError(400, 'Este vínculo ya ha sido eliminado previamente.', 'relationship_already_deleted');
-  }
-
-  const deletedRelationship = await CaregiverRelationship.markAsDeleted(id);
+  await CaregiverRelationship.hardDelete(id);
 
   return {
     action: 'relationship_deleted',
-    relationship: deletedRelationship,
+    relationship,
     status: 'success',
   };
 }
