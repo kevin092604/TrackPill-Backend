@@ -7,6 +7,7 @@ function mapUser(row) {
 
   return {
     active: row.active,
+    address: row.address,
     birthDate: row.birth_date,
     creationDate: row.creation_date,
     email: row.email,
@@ -18,6 +19,7 @@ function mapUser(row) {
     lastName: row.last_name,
     lastUpdate: row.last_update,
     phone: row.phone,
+    photoUrl: row.photo_url,
   };
 }
 
@@ -109,6 +111,41 @@ async function markEmailVerified(userId, client = db) {
   return mapUser(result.rows[0]);
 }
 
+async function updateProfile(userId, { firstName, lastName, email, phone, emailChanged }, client = db) {
+  const result = await client.query(
+    `
+      UPDATE auth.users
+      SET first_name = $2,
+          last_name = $3,
+          email = $4,
+          phone = $5,
+          email_verified = CASE WHEN $6 THEN FALSE ELSE email_verified END,
+          email_verified_date = CASE WHEN $6 THEN NULL ELSE email_verified_date END,
+          last_update = NOW()
+      WHERE id = $1
+      RETURNING *
+    `,
+    [userId, firstName, lastName, email, phone, Boolean(emailChanged)],
+  );
+
+  return mapUser(result.rows[0]);
+}
+
+async function updatePhotoUrl(userId, photoUrl, client = db) {
+  const result = await client.query(
+    `
+      UPDATE auth.users
+      SET photo_url = $2,
+          last_update = NOW()
+      WHERE id = $1
+      RETURNING *
+    `,
+    [userId, photoUrl],
+  );
+
+  return mapUser(result.rows[0]);
+}
+
 module.exports = {
   create,
   createSocialUser,
@@ -117,5 +154,7 @@ module.exports = {
   findByPhone,
   markEmailVerified,
   mapUser,
+  updatePhotoUrl,
+  updateProfile,
 };
 
