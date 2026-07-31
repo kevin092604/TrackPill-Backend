@@ -92,6 +92,29 @@ async function getRelationships(req, res, next) {
 }
 
 /**
+ * Controlador para obtener las solicitudes de relación pendientes que el
+ * usuario autenticado debe responder.
+ */
+async function getPendingRequests(req, res, next) {
+  try {
+    const userId = req?.user?.id;
+
+    if (!userId) {
+      throw createHttpError(401, 'Usuario no autenticado.', 'unauthorized');
+    }
+
+    const requests = await relationshipService.getPendingIncomingRequests(userId);
+
+    res.status(200).json({
+      success: true,
+      requests,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
  * Controlador para eliminar una relación
  * @author agblandin@unah.hn
  * @version 0.1.0
@@ -128,5 +151,6 @@ module.exports = {
   respondToRelationship,
   updateRelationshipActiveStatus,
   getRelationships,
+  getPendingRequests,
   deleteRelationship
 };

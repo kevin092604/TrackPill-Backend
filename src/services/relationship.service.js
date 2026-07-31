@@ -320,6 +320,10 @@ function throwDuplicateRelationship(relationship) {
  * @param {string} direction Dirección de la relación ('caregivers' o 'patients').
  * @returns {Promise<Array>} Lista de relaciones aceptadas.
  */
+async function getPendingIncomingRequests(userId) {
+  return CaregiverRelationship.findPendingIncomingRequests(userId);
+}
+
 async function getRelationshipsList(userId, direction) {
   if (!['caregivers', 'patients'].includes(direction)) {
     throw createHttpError(
@@ -381,5 +385,6 @@ module.exports = {
   respondToRelationship,
   updateRelationshipActiveStatus,
   getRelationshipsList,
+  getPendingIncomingRequests,
   deleteRelationship
 };

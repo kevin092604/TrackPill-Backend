@@ -158,6 +158,59 @@ async function findAcceptedByDirection(userId, direction, client = db) {
 }
 
 /**
+ * Encuentra las solicitudes de relación pendientes que el usuario debe
+ * responder (es decir, las que la otra persona inició).
+ * @param {string|number} userId ID del usuario que debe responder.
+ * @param {object} [client=db] Cliente de la base de datos.
+ */
+async function findPendingIncomingRequests(userId, client = db) {
+  const result = await client.query(
+    `
+      SELECT
+        cr.id,
+        cr.caregiver_id,
+        cr.patient_id,
+        cr.relationship_label,
+        cr.initiated_by,
+        cr.invitation_date,
+        u.id AS requester_user_id,
+        u.first_name,
+        u.last_name,
+        u.email,
+        u.photo_url
+      FROM auth.caregiver_relationships cr
+      JOIN auth.users u ON u.id = CASE
+        WHEN cr.caregiver_id = $1 THEN cr.patient_id
+        ELSE cr.caregiver_id
+      END
+      WHERE cr.status = 'pendiente'
+        AND (
+          (cr.caregiver_id = $1 AND cr.initiated_by = 'patient')
+          OR (cr.patient_id = $1 AND cr.initiated_by = 'caregiver')
+        )
+      ORDER BY cr.invitation_date DESC
+    `,
+    [userId]
+  );
+
+  return result.rows.map(row => ({
+    id: row.id,
+    caregiverId: row.caregiver_id,
+    patientId: row.patient_id,
+    relationshipLabel: row.relationship_label,
+    initiatedBy: row.initiated_by,
+    invitationDate: row.invitation_date,
+    requester: {
+      id: row.requester_user_id,
+      firstName: row.first_name,
+      lastName: row.last_name,
+      email: row.email,
+      photoUrl: row.photo_url,
+    },
+  }));
+}
+
+/**
  * Función que marca una relación como eliminada
  * @author agblandin@unah.hn
  * @version 0.1.0
@@ -208,6 +261,7 @@ module.exports = {
   updateActiveStatus,
   updateResponse,
   findAcceptedByDirection,
+  findPendingIncomingRequests,
   markAsDeleted,
   findActiveRelation,
 };

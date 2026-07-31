@@ -5,9 +5,10 @@ const authMiddleware = require('../middlewares/auth.middleware');
 
 const router = express.Router();
 
-//router.use(authMiddleware);
+router.use(authMiddleware);
 
 router.get('/', relationshipController.getRelationships);
+router.get('/pending', relationshipController.getPendingRequests);
 router.delete('/:id', relationshipController.deleteRelationship);
 
 router.post('/request', relationshipController.requestRelationship);

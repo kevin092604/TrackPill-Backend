@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 
-const { getRequiredEnv } = require('../utils/helpers');
+const { createHttpError, getRequiredEnv } = require('../utils/helpers');
 
 const EXTENSION_BY_MIME_TYPE = {
   'image/bmp': 'bmp',
@@ -9,6 +9,15 @@ const EXTENSION_BY_MIME_TYPE = {
 };
 
 let s3ClientPromise;
+
+function isS3Configured() {
+  return Boolean(
+    process.env.AWS_ACCESS_KEY_ID
+    && process.env.AWS_SECRET_ACCESS_KEY
+    && process.env.AWS_REGION
+    && process.env.AWS_S3_BUCKET,
+  );
+}
 
 async function getS3Client() {
   if (!s3ClientPromise) {
@@ -30,6 +39,14 @@ async function getS3Client() {
  * @param {{ buffer: Buffer, mimetype: string }} file Archivo en memoria (multer)
  */
 async function uploadPublicFile(keyPrefix, file) {
+  if (!isS3Configured()) {
+    throw createHttpError(
+      503,
+      'El almacenamiento de archivos no esta configurado en el servidor (faltan credenciales de AWS S3).',
+      'storage_not_configured',
+    );
+  }
+
   const { PutObjectCommand } = await import('@aws-sdk/client-s3');
   const client = await getS3Client();
   const bucket = getRequiredEnv('AWS_S3_BUCKET');
