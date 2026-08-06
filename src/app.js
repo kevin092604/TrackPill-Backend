@@ -16,6 +16,7 @@ const subscriptionRoutes = require('./routes/subscription.routes');
 const paymentRoutes = require('./routes/payment.routes');
 const savedListRoutes = require('./routes/saved-list.routes');
 const pharmacySearchRoutes = require('./routes/pharmacy-search.routes');
+const chatbotRoutes = require('./routes/chatbot.routes');
 const { startScheduledJobs } = require('./jobs/scheduler');
 
 const app = express();
@@ -42,6 +43,7 @@ app.use('/subscription', subscriptionRoutes);
 app.use('/payments', paymentRoutes);
 app.use('/medicine-lists', savedListRoutes);
 app.use('/pharmacies', pharmacySearchRoutes);
+app.use('/chatbot', chatbotRoutes);
 
 app.use((req, res) => {
   res.status(404).json({

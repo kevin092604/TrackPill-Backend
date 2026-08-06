@@ -416,3 +416,29 @@ CREATE TABLE IF NOT EXISTS billing.payments (
 
 CREATE INDEX IF NOT EXISTS payments_user_idx
   ON billing.payments (user_id, creation_date DESC);
+
+-- Tuchi IA: chatbot con Amazon Bedrock (Claude)
+CREATE SCHEMA IF NOT EXISTS assistant;
+
+CREATE TABLE IF NOT EXISTS assistant.conversations (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  title VARCHAR(120),
+  creation_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_message_date TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS assistant_conversations_user_idx
+  ON assistant.conversations (user_id, last_message_date DESC);
+
+CREATE TABLE IF NOT EXISTS assistant.messages (
+  id BIGSERIAL PRIMARY KEY,
+  conversation_id BIGINT NOT NULL REFERENCES assistant.conversations(id) ON DELETE CASCADE,
+  role VARCHAR(20) NOT NULL,
+  content TEXT NOT NULL,
+  creation_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT assistant_messages_role_check CHECK (role IN ('user', 'assistant'))
+);
+
+CREATE INDEX IF NOT EXISTS assistant_messages_conversation_idx
+  ON assistant.messages (conversation_id, creation_date ASC);

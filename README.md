@@ -1058,6 +1058,47 @@ Para ejecutar este job manualmente:
 node src/jobs/check-overdue-doses.js
 ```
 
+## Endpoints de Tuchi IA (Chatbot con Amazon Bedrock)
+
+Todos los endpoints de este módulo requieren el token de acceso en la cabecera `Authorization: Bearer <token>`.
+
+Requiere las variables `BEDROCK_AWS_REGION` (o `AWS_REGION`), credenciales de AWS con acceso al modelo configurado en Bedrock, y `BEDROCK_MODEL_ID`. Tuchi puede consultar el resumen del dashboard y la lista de medicamentos del paciente autenticado mediante herramientas (tool use) para responder con datos reales.
+
+### Enviar mensaje
+
+`POST /chatbot/messages`
+
+Envía un mensaje a Tuchi IA. Si no se envía `conversationId`, crea una conversación nueva.
+
+```json
+{
+  "conversationId": null,
+  "message": "¿Qué medicamentos tengo activos?"
+}
+```
+
+```json
+{
+  "success": true,
+  "conversationId": "1",
+  "message": {
+    "id": "2",
+    "conversationId": "1",
+    "role": "assistant",
+    "content": "Actualmente tienes 2 medicamentos activos: Losartán 50mg y Omeprazol 20mg.",
+    "createdAt": "2026-08-05T12:00:00.000Z"
+  }
+}
+```
+
+### Listar conversaciones
+
+`GET /chatbot/conversations`
+
+### Obtener mensajes de una conversación
+
+`GET /chatbot/conversations/:id/messages`
+
 ## Correo Gmail
 
 Usa una contrasena de aplicacion de Google, no la contrasena normal de la
