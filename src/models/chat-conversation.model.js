@@ -8,18 +8,19 @@ function mapConversation(row) {
   return {
     id: row.id,
     userId: row.user_id,
+    patientId: row.patient_id,
     title: row.title,
     createdAt: row.creation_date,
     lastMessageAt: row.last_message_date,
   };
 }
 
-async function create(userId, title, client = db) {
+async function create(userId, title, patientId, client = db) {
   const result = await client.query(
-    `INSERT INTO assistant.conversations (user_id, title)
-     VALUES ($1, $2)
+    `INSERT INTO assistant.conversations (user_id, title, patient_id)
+     VALUES ($1, $2, $3)
      RETURNING *`,
-    [userId, title || null],
+    [userId, title || null, patientId || null],
   );
 
   return mapConversation(result.rows[0]);
@@ -34,10 +35,13 @@ async function findByIdForUser(id, userId, client = db) {
   return mapConversation(result.rows[0]);
 }
 
-async function findAllByUserId(userId, client = db) {
+async function findAllByUserId(userId, patientId, client = db) {
   const result = await client.query(
-    `SELECT * FROM assistant.conversations WHERE user_id = $1 ORDER BY last_message_date DESC`,
-    [userId],
+    `SELECT * FROM assistant.conversations
+     WHERE user_id = $1
+       AND patient_id IS NOT DISTINCT FROM $2
+     ORDER BY last_message_date DESC`,
+    [userId, patientId || null],
   );
 
   return result.rows.map(mapConversation);

@@ -27,6 +27,7 @@ const router = express.Router();
 router.use(authMiddleware);
 
 router.post('/messages', chatbotLimiter, chatbotController.sendMessage);
+router.post('/messages/stream', chatbotLimiter, chatbotController.sendMessageStream);
 router.get('/conversations', chatbotController.getConversations);
 router.get('/conversations/:id/messages', chatbotController.getMessages);
 

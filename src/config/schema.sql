@@ -431,6 +431,12 @@ CREATE TABLE IF NOT EXISTS assistant.conversations (
 CREATE INDEX IF NOT EXISTS assistant_conversations_user_idx
   ON assistant.conversations (user_id, last_message_date DESC);
 
+ALTER TABLE assistant.conversations
+  ADD COLUMN IF NOT EXISTS patient_id BIGINT REFERENCES auth.users(id) ON DELETE CASCADE;
+
+CREATE INDEX IF NOT EXISTS assistant_conversations_user_patient_idx
+  ON assistant.conversations (user_id, patient_id, last_message_date DESC);
+
 CREATE TABLE IF NOT EXISTS assistant.messages (
   id BIGSERIAL PRIMARY KEY,
   conversation_id BIGINT NOT NULL REFERENCES assistant.conversations(id) ON DELETE CASCADE,
