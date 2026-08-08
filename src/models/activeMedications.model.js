@@ -15,10 +15,13 @@ async function findActiveMedications(userId, search = '', client = db) {
         m.image,
         m.dose,
         m.frequency,
+        m.start_time,
         tu.name AS time_unit,
-        pf.name AS pharmaceutical_form
+        pf.name AS pharmaceutical_form,
+        mu.code AS dose_unit
      FROM medicine_stock.medicines m
      JOIN medicine_stock.pharmaceutical_forms pf ON m.pharmaceutical_form_id = pf.id
+     JOIN medicine_stock.measurement_units mu ON pf.measurement_unit_id = mu.id
      JOIN medicine_stock.time_units tu ON m.time_unit_id = tu.id
      WHERE m.user_id = $1
        AND ($2 = '' OR m.name ILIKE $3)
@@ -32,8 +35,10 @@ async function findActiveMedications(userId, search = '', client = db) {
     name: row.name,
     dose: Number(row.dose),
     frequency: row.frequency,
+    startTime: row.start_time,
     timeUnit: row.time_unit,
-    pharmaceuticalForm: row.pharmaceutical_form
+    pharmaceuticalForm: row.pharmaceutical_form,
+    doseUnit: row.dose_unit
   }));
 }
 

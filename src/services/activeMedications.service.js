@@ -18,8 +18,7 @@ async function getActiveMedications(userId, search = '') {
       `SELECT scheduled_time 
        FROM medicine_stock.medication_logs 
        WHERE medicine_id = $1 
-         AND scheduled_time >= NOW() 
-         AND status_id = 1
+         AND status_id IN (1, 3)
        ORDER BY scheduled_time ASC 
        LIMIT 1`,
       [med.id]
@@ -34,13 +33,25 @@ async function getActiveMedications(userId, search = '') {
         hour12: true,
         timeZone: 'America/Tegucigalpa',
       });
+    } else if (med.startTime) {
+      // Fallback para medicamentos recién creados que aún no tienen logs generados
+      const [hours, minutes] = med.startTime.split(':');
+      const dateObj = new Date();
+      dateObj.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+      nextDoseLabel = dateObj.toLocaleTimeString('es-HN', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: 'America/Tegucigalpa',
+      });
     }
 
     formattedMedicines.push({
       id: med.id,
       name: med.name,
       doseAmount: med.dose,
-      doseUnit: med.pharmaceuticalForm, 
+      doseUnit: med.doseUnit, 
+      pharmaceuticalForm: med.pharmaceuticalForm,
       frequencyLabel: `cada ${med.frequency} ${med.timeUnit.toLowerCase()}`, 
       nextDoseLabel: nextDoseLabel
     });
