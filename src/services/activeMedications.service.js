@@ -53,7 +53,8 @@ async function getActiveMedications(userId, search = '') {
       doseUnit: med.doseUnit, 
       pharmaceuticalForm: med.pharmaceuticalForm,
       frequencyLabel: `cada ${med.frequency} ${med.timeUnit.toLowerCase()}`, 
-      nextDoseLabel: nextDoseLabel
+      nextDoseLabel: nextDoseLabel,
+      image: med.image
     });
   }
 

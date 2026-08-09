@@ -19,6 +19,7 @@ router.get('/catalog', medicineController.getCatalog);
 router.get('/history', medicineController.getMedicationHistory);
 router.get('/:id', medicineController.getMedicineDetail);
 router.put('/:id', medicineController.updateMedicine);
+router.delete('/:id', medicineController.deleteMedicine);
 router.post('/:id/photo', upload.single('photo'), medicineController.uploadPhoto);
 router.get('/:id/pharmacies', medicineController.getNearbyPharmacies);
 router.patch('/:id/doses/:doseId', medicineController.registerDoseStatus);

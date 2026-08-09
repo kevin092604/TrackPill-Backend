@@ -261,6 +261,7 @@ CREATE TABLE IF NOT EXISTS medicine_stock.medicines (
   description TEXT,
   low_stock_alert_enabled BOOLEAN NOT NULL DEFAULT FALSE,
   low_stock_threshold NUMERIC(10, 2) DEFAULT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
   user_id BIGINT NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE
 );
 

@@ -33,6 +33,7 @@ async function findActiveMedications(userId, search = '', client = db) {
   return result.rows.map(row => ({
     id: row.id,
     name: row.name,
+    image: row.image,
     dose: Number(row.dose),
     frequency: row.frequency,
     startTime: row.start_time,

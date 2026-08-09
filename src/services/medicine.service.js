@@ -7,6 +7,7 @@ const MedicationLog = require('../models/medication-log.model');
 const inventoryService = require('./inventory.service');
 const storageService = require('./storage.service');
 const { createHttpError } = require('../utils/helpers');
+const generateDailyDoses = require('../jobs/generate-daily-doses');
 
 const ALLOWED_PHOTO_MIME_TYPES = new Set(['image/bmp', 'image/jpeg', 'image/png']);
 
@@ -262,8 +263,29 @@ async function updateMedicine(medicineId, userId, payload) {
       await Schedule.update(existingMedicine.scheduleId, data.schedule, client);
     }
 
-    return await Medicine.update(medicineId, data, client);
+    const updated = await Medicine.update(medicineId, data, client);
+
+    const scheduleChanged = data.startTime !== undefined || data.frequency !== undefined || data.schedule !== undefined;
+
+    if (scheduleChanged) {
+      await client.query(
+        `DELETE FROM medicine_stock.medication_logs 
+         WHERE medicine_id = $1 AND status_id = 1 AND scheduled_time > NOW()`,
+        [medicineId]
+      );
+    }
+
+    return updated;
   });
+
+  if (data.startTime !== undefined || data.frequency !== undefined || data.schedule !== undefined) {
+    // Regenerate logs if schedule changed
+    try {
+      await generateDailyDoses();
+    } catch (e) {
+      console.error('Failed to regenerate daily doses after update', e);
+    }
+  }
 
   return updatedMedicine;
 }
@@ -384,11 +406,43 @@ async function uploadMedicinePhoto(medicineId, userId, file) {
   return { medicine: updatedMedicine };
 }
 
+async function deleteMedicine(medicineId, userId) {
+  const existingMedicine = await Medicine.findById(medicineId);
+  if (!existingMedicine) {
+    throw createHttpError(404, 'Medicamento no encontrado.');
+  }
+  if (existingMedicine.userId !== userId) {
+    throw createHttpError(403, 'No tienes permiso para eliminar este medicamento.');
+  }
+
+  await db.transaction(async (client) => {
+    await client.query(
+      `DELETE FROM medicine_stock.medication_logs WHERE medicine_id = $1`,
+      [medicineId]
+    );
+
+    await client.query(
+      `DELETE FROM medicine_stock.medicines WHERE id = $1`,
+      [medicineId]
+    );
+
+    if (existingMedicine.scheduleId) {
+      await client.query(
+        `DELETE FROM medicine_stock.schedules WHERE id = $1`,
+        [existingMedicine.scheduleId]
+      );
+    }
+  });
+
+  return { success: true };
+}
+
 module.exports = {
   registerMedicine,
   getMedicines,
   getMedicineDetail,
   updateMedicine,
+  deleteMedicine,
   registerDoseStatus,
   getMedicationHistory,
   uploadMedicinePhoto,

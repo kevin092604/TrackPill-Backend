@@ -71,6 +71,15 @@ async function updateMedicine(req, res, next) {
   }
 }
 
+async function deleteMedicine(req, res, next) {
+  try {
+    const result = await medicineService.deleteMedicine(req.params.id, req.user.id);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
 /**
  * Controlador para obtener las farmacias cercanas con disponibilidad y precios.
  */
@@ -148,6 +157,7 @@ module.exports = {
   getMedicines,
   getMedicineDetail,
   updateMedicine,
+  deleteMedicine,
   getNearbyPharmacies,
   registerDoseStatus,
   getMedicationHistory,
