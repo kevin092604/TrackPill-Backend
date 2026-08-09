@@ -1,5 +1,6 @@
 const CaregiverRelationship = require('../models/caregiver-relationship.model');
 const PatientModel = require('../models/patient.model');
+const User = require('../models/user.model');
 const db = require('../config/db');
 const { createHttpError } = require('../utils/helpers');
 
@@ -34,17 +35,26 @@ async function assertActiveAcceptedRelationship(caregiverId, patientId) {
  */
 async function getPatientSummary(caregiverId, patientId) {
 
-  const relationship = await assertActiveAcceptedRelationship(caregiverId, patientId);
-
-  const [nextDoseData, recentActivityData, complianceData] = await Promise.all([
+  const [relationship, patientUser, nextDoseData, recentActivityData, complianceData, todayStats, criticalInv] = await Promise.all([
+      assertActiveAcceptedRelationship(caregiverId, patientId),
+      User.findById(patientId),
       PatientModel.getNextDose(patientId),
       PatientModel.getRecentActivity(patientId),
-      PatientModel.getWeeklyCompliance(patientId)
+      PatientModel.getWeeklyCompliance(patientId),
+      PatientModel.getTodayStats(patientId),
+      PatientModel.getCriticalInventory(patientId),
   ]);
+
+  const fullName = patientUser
+    ? [patientUser.firstName, patientUser.lastName].filter(Boolean).join(' ')
+    : 'Paciente';
 
   const summary = {
     patientId: parseInt(patientId, 10),
-    relationshipLabel: relationship.relationshipLabel,
+    patientName: fullName,
+    patientPhotoUrl: patientUser?.photoUrl || null,
+    relationshipLabel: relationship.relationshipLabel || 'Paciente',
+    todayDoses: todayStats,
     nextDose: nextDoseData ? {
       medicationName: nextDoseData.medication_name,
       scheduledTime: nextDoseData.scheduled_time, 
@@ -55,6 +65,7 @@ async function getPatientSummary(caregiverId, patientId) {
       takenAt: log.taken_time,
       status: log.status.toLowerCase()
     })),
+    criticalInventory: criticalInv,
     weeklyCompliance: complianceData
   };
 
