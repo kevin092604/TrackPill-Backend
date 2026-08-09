@@ -38,7 +38,6 @@ async function checkLowStock() {
         if (alerts.length === 0) {
             console.info(`[JOB] No hay alertas de stock bajo que generar. Finalizando.`);
             await client.query('ROLLBACK');
-            client.release();
             return;
         }
 

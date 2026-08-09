@@ -20,6 +20,7 @@ const chatbotRoutes = require('./routes/chatbot.routes');
 const { startScheduledJobs } = require('./jobs/scheduler');
 
 const app = express();
+app.set('trust proxy', 1);
 
 const corsOrigin = process.env.CORS_ORIGIN || '*';
 

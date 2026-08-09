@@ -28,13 +28,9 @@ function getCurrentWeekBounds() {
  * @param {number} patientId ID del paciente
  * @returns {Promise<Object>} Objeto con el resumen del dashboard
  */
-async function getPatientSummary(patientId) {
+async function getPatientSummary(patientId, userTimezone = 'America/Tegucigalpa') {
+    const tz = String(userTimezone || 'America/Tegucigalpa').trim();
     const now = new Date();
-
-    const todayStart = new Date(now);
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date(now);
-    todayEnd.setHours(23, 59, 59, 999);
 
     const todayQuery = await pool.query(
         `SELECT
@@ -44,9 +40,8 @@ async function getPatientSummary(patientId) {
          FROM medicine_stock.medication_logs ml
          JOIN medicine_stock.medicines m ON ml.medicine_id = m.id
          WHERE m.user_id = $1
-            AND ml.scheduled_time >= $2
-            AND ml.scheduled_time <= $3`,
-        [ patientId, todayStart, todayEnd ]
+            AND (ml.scheduled_time AT TIME ZONE $2)::date = (NOW() AT TIME ZONE $2)::date`,
+        [ patientId, tz ]
     );
 
     const today = todayQuery.rows[0] || { scheduled: 0, completed: 0, pending: 0 };
@@ -70,11 +65,11 @@ async function getPatientSummary(patientId) {
          JOIN medicine_stock.medicines m ON ml.medicine_id = m.id
          JOIN medicine_stock.pharmaceutical_forms pf ON m.pharmaceutical_form_id = pf.id
          WHERE m.user_id = $1
-            AND ml.scheduled_time > $2
+            AND ml.scheduled_time >= NOW() - INTERVAL '1 hour'
             AND ml.status_id IN (1,3)
          ORDER BY ml.scheduled_time ASC
          LIMIT 1`,
-        [ patientId, now ]
+        [ patientId ]
     );
 
     const dbNextDose = nextDoseQuery.rows[0];
@@ -140,9 +135,11 @@ async function getPatientSummary(patientId) {
  * @since 2026/07/03
  * @date 2026/07/18
  * @param {number} caregiverId ID del cuidador
+ * @param {string} userTimezone Zona horaria del cliente
  * @returns {Promise<Object[]>} Objeto con el resumen del dashboard por paciente
  */
-async function getCaregiverSummary(caregiverId) {
+async function getCaregiverSummary(caregiverId, userTimezone = 'America/Tegucigalpa') {
+    const tz = String(userTimezone || 'America/Tegucigalpa').trim();
     const now = new Date();
 
     const patientsQuery = await pool.query(
@@ -166,11 +163,6 @@ async function getCaregiverSummary(caregiverId) {
     const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
     for (const pat of patients) {
-        const todayStart = new Date(now);
-        todayStart.setHours(0, 0, 0, 0);
-        const todayEnd = new Date(now);
-        todayEnd.setHours(23, 59, 59, 999);
-
         const todayQuery = await pool.query(
             `SELECT
                 COUNT(ml.id)::int AS scheduled,
@@ -179,9 +171,8 @@ async function getCaregiverSummary(caregiverId) {
              FROM medicine_stock.medication_logs ml
              JOIN medicine_stock.medicines m ON ml.medicine_id = m.id
              WHERE m.user_id = $1
-                AND ml.scheduled_time >= $2
-                AND ml.scheduled_time <= $3`,
-            [ pat.patient_id, todayStart, todayEnd ]
+                AND (ml.scheduled_time AT TIME ZONE $2)::date = (NOW() AT TIME ZONE $2)::date`,
+            [ pat.patient_id, tz ]
         );
         
         const todayAdherence = todayQuery.rows[0] || { scheduled: 0, completed: 0, pending: 0 };

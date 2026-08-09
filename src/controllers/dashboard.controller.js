@@ -14,8 +14,9 @@ const dashboardService = require('../services/dashboard.service');
 async function getPatientSummary(req, res, next) {
     try {
         const userId = req.user.id;
+        const timezone = req.headers['x-timezone'] || req.query.timezone || 'America/Tegucigalpa';
 
-        const summary = await dashboardService.getPatientSummary(userId);
+        const summary = await dashboardService.getPatientSummary(userId, timezone);
 
         res.status(200).json(
             {
@@ -41,8 +42,9 @@ async function getPatientSummary(req, res, next) {
 async function getCaregiverSummary(req, res, next) {
     try {
         const caregiverId = req.user.id;
+        const timezone = req.headers['x-timezone'] || req.query.timezone || 'America/Tegucigalpa';
 
-        const patients = await dashboardService.getCaregiverSummary(caregiverId);
+        const patients = await dashboardService.getCaregiverSummary(caregiverId, timezone);
 
         res.status(200).json(
             {
