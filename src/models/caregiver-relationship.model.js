@@ -141,20 +141,29 @@ async function findAcceptedByDirection(userId, direction, client = db) {
     [userId]
   );
 
-  return result.rows.map(row => ({
-    id: row.id,
-    caregiverId: row.caregiver_id,
-    patientId: row.patient_id,
-    relationshipLabel: row.relationship_label,
-    active: row.active,
-    status: row.status,
-    user: {
-      id: row.target_user_id,
-      firstName: row.first_name,
-      lastName: row.last_name,
-      email: row.email
+  const defaultLabel = direction === 'patients' ? 'Paciente' : 'Cuidador';
+
+  return result.rows.map(row => {
+    let label = row.relationship_label;
+    if (!label || (direction === 'caregivers' && label === 'Paciente') || (direction === 'patients' && label === 'Cuidador')) {
+      label = defaultLabel;
     }
-  }));
+
+    return {
+      id: row.id,
+      caregiverId: row.caregiver_id,
+      patientId: row.patient_id,
+      relationshipLabel: label,
+      active: row.active,
+      status: row.status,
+      user: {
+        id: row.target_user_id,
+        firstName: row.first_name,
+        lastName: row.last_name,
+        email: row.email
+      }
+    };
+  });
 }
 
 /**

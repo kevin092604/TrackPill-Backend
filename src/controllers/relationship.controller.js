@@ -144,13 +144,27 @@ async function deleteRelationship(req, res, next) {
   }
 }
 
+async function searchUser(req, res, next) {
+  try {
+    const { query } = req.query;
+    const user = await relationshipService.searchUser(query, req.user);
+    res.status(200).json({
+      success: true,
+      user,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   createInvitationToken,
   redeemInvitationToken,
   requestRelationship,
   respondToRelationship,
+  searchUser,
   updateRelationshipActiveStatus,
   getRelationships,
   getPendingRequests,
-  deleteRelationship
+  deleteRelationship,
 };

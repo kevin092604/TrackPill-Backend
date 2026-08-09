@@ -146,15 +146,39 @@ async function updatePhotoUrl(userId, photoUrl, client = db) {
   return mapUser(result.rows[0]);
 }
 
+async function findByNameOrSearchTerm(term, client = db) {
+  const cleanTerm = String(term || '').trim();
+  const result = await client.query(
+    `
+      SELECT * FROM auth.users
+      WHERE active = TRUE
+        AND (
+          LOWER(first_name || ' ' || last_name) LIKE LOWER($1)
+          OR LOWER(first_name) LIKE LOWER($1)
+          OR LOWER(last_name) LIKE LOWER($1)
+          OR email = LOWER($2)
+          OR phone = $2
+        )
+      ORDER BY last_update DESC
+      LIMIT 1
+    `,
+    [`%${cleanTerm}%`, cleanTerm],
+  );
+
+  return mapUser(result.rows[0]);
+}
+
 module.exports = {
   create,
   createSocialUser,
   findByEmail,
   findById,
+  findByNameOrSearchTerm,
   findByPhone,
   markEmailVerified,
   mapUser,
   updatePhotoUrl,
   updateProfile,
 };
+
 

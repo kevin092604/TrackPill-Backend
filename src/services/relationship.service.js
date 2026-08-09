@@ -190,16 +190,45 @@ async function findTargetUser(payload) {
   const query = String(payload?.targetQuery || payload?.query || '').trim();
   if (query) {
     if (query.includes('@')) return User.findByEmail(normalizeEmail(query));
-    if (/^\+?[\d\s()-]{7,20}$/.test(query)) return User.findByPhone(normalizePhone(query));
-    if (/^\d+$/.test(query)) return User.findById(normalizeId(query, 'target_user_id'));
-    throw createHttpError(422, 'Busca por correo, telefono o ID de usuario.', 'invalid_relationship_target');
+    if (/^\+?[\d\s()-]{7,20}$/.test(query)) {
+      try {
+        const byPhone = await User.findByPhone(normalizePhone(query));
+        if (byPhone) return byPhone;
+      } catch (e) {
+        // Ignorar error de formato de telefono si la query es un texto libre
+      }
+    }
+    if (/^\d+$/.test(query)) {
+      const byId = await User.findById(query);
+      if (byId) return byId;
+    }
+    const userByName = await User.findByNameOrSearchTerm(query);
+    if (userByName) return userByName;
+    throw createHttpError(404, 'Usuario no encontrado.', 'target_user_not_found');
   }
 
   throw createHttpError(
     400,
-    'Indica ID, correo o telefono.',
+    'Indica ID, correo, teléfono o nombre de usuario.',
     'missing_relationship_target',
   );
+}
+
+async function searchUser(query, currentUser) {
+  const cleanQuery = String(query || '').trim();
+  if (!cleanQuery) {
+    throw createHttpError(400, 'Ingresa un término de búsqueda.', 'missing_search_query');
+  }
+  const targetUser = await findTargetUser({ targetQuery: cleanQuery });
+  ensureAvailableUser(targetUser, 'target_user_not_found');
+  ensureDifferentUsers(currentUser.id, targetUser.id);
+  return {
+    id: String(targetUser.id),
+    name: `${targetUser.firstName || ''} ${targetUser.lastName || ''}`.trim() || 'Usuario TrackPill',
+    email: targetUser.email,
+    phone: targetUser.phone,
+    photoUrl: targetUser.photoUrl,
+  };
 }
 
 function normalizePhone(value) {
@@ -379,8 +408,9 @@ module.exports = {
   redeemInvitationToken,
   requestRelationship,
   respondToRelationship,
+  searchUser,
   updateRelationshipActiveStatus,
   getRelationshipsList,
   getPendingIncomingRequests,
-  deleteRelationship
+  deleteRelationship,
 };
