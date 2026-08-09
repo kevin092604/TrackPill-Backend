@@ -82,28 +82,72 @@ async function getPatientSummary(caregiverId, patientId) {
  * @param {string|number} patientId ID del paciente a consultar
  * @returns {Promise<Object>} Objeto con los datos del paciente y sus medicamentos
  */
-async function getPatientMedicines(caregiverId, patientId) {
-
+async function getPatientMedicines(caregiverId, patientId, search = '') {
   await assertActiveAcceptedRelationship(caregiverId, patientId);
 
-  const rawMedicines = await PatientModel.getPatientMedicines(patientId);
-  
-  const patientFirstName = rawMedicines.length > 0 ? rawMedicines[0].first_name : "Paciente";
+  const [rawMedicines, patientUser] = await Promise.all([
+    PatientModel.getPatientMedicines(patientId, search),
+    User.findById(patientId),
+  ]);
 
-  const formattedMedicines = rawMedicines.map(med => ({
+  const patientFullName = patientUser
+    ? [patientUser.firstName, patientUser.lastName].filter(Boolean).join(' ')
+    : (rawMedicines.length > 0 ? rawMedicines[0].first_name : 'Paciente');
+
+  const formattedMedicines = [];
+
+  for (const med of rawMedicines) {
+    const nextDoseResult = await db.query(
+      `SELECT scheduled_time 
+       FROM medicine_stock.medication_logs 
+       WHERE medicine_id = $1 
+         AND status_id IN (1, 3)
+       ORDER BY scheduled_time ASC 
+       LIMIT 1`,
+      [med.id]
+    );
+
+    let nextDoseLabel = null;
+    if (nextDoseResult.rows.length > 0) {
+      const dateObj = new Date(nextDoseResult.rows[0].scheduled_time);
+      nextDoseLabel = dateObj.toLocaleTimeString('es-HN', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: 'America/Tegucigalpa',
+      });
+    } else if (med.start_time) {
+      const [hours, minutes] = med.start_time.split(':');
+      const dateObj = new Date();
+      dateObj.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+      nextDoseLabel = dateObj.toLocaleTimeString('es-HN', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: 'America/Tegucigalpa',
+      });
+    }
+
+    formattedMedicines.push({
       id: med.id,
       name: med.name,
-      doseQuantity: parseFloat(med.dose_quantity),
-      doseUnit: med.dose_unit,
-      frequencyText: `cada ${med.frequency} ${med.frequency_unit.toLowerCase()}`,
-      remainingStock: parseFloat(med.remaining_stock),
-      stockUnit: med.dose_unit,
+      image: med.image,
+      doseAmount: Number(med.dose_quantity),
+      doseQuantity: Number(med.dose_quantity),
+      doseUnit: med.dose_unit || 'mg',
+      pharmaceuticalForm: med.pharmaceutical_form || 'Tableta',
+      frequencyLabel: `cada ${med.frequency} ${med.frequency_unit ? med.frequency_unit.toLowerCase() : 'horas'}`,
+      frequencyText: `cada ${med.frequency} ${med.frequency_unit ? med.frequency_unit.toLowerCase() : 'horas'}`,
+      nextDoseLabel,
+      remainingStock: Number(med.remaining_stock),
+      stockUnit: med.dose_unit || 'tabletas',
       status: "active"
-  }));
+    });
+  }
 
   return {
     patientId: Number(patientId),
-    patientName: patientFirstName,
+    patientName: patientFullName,
     totalActive: formattedMedicines.length,
     medicines: formattedMedicines
   };

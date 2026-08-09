@@ -116,8 +116,9 @@ async function getPatientSummary(req, res, next) {
 async function getPatientMedicines(req, res, next) {
     try {
         const { patientId } = req.params;
+        const { search } = req.query;
 
-        const data = await caregiverService.getPatientMedicines(req.user.id, patientId);
+        const data = await caregiverService.getPatientMedicines(req.user.id, patientId, search || '');
 
         res.status(200).json({
             success: true,

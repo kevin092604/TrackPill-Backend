@@ -126,24 +126,31 @@ async function getCriticalInventory(patientId) {
  * @version 0.1.0
  * @since 2026/07/19
  */
-async function getPatientMedicines(patientId) {
-    const result = await db.query(`
+async function getPatientMedicines(patientId, search = '') {
+    const query = `
         SELECT 
             m.id, 
             m.name, 
+            m.image,
             m.dose AS dose_quantity, 
             m.current_stock AS remaining_stock, 
-            pf.name AS dose_unit, 
+            pf.name AS pharmaceutical_form, 
+            mu.code AS dose_unit,
             m.frequency, 
             tu.name AS frequency_unit,
-            u.first_name
+            m.start_time,
+            u.first_name,
+            u.last_name
         FROM medicine_stock.medicines m
         JOIN medicine_stock.pharmaceutical_forms pf ON m.pharmaceutical_form_id = pf.id
+        LEFT JOIN medicine_stock.measurement_units mu ON pf.measurement_unit_id = mu.id
         JOIN medicine_stock.time_units tu ON m.time_unit_id = tu.id
         JOIN auth.users u ON m.user_id = u.id
         WHERE m.user_id = $1
-    `, [patientId]);
-    
+          AND ($2 = '' OR m.name ILIKE $3)
+        ORDER BY m.name ASC
+    `;
+    const result = await db.query(query, [patientId, search, `%${search}%`]);
     return result.rows;
 }
 
