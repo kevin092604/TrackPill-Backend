@@ -162,15 +162,22 @@ async function getPatientCalendar(caregiverId, patientId, month) {
 
   const resolvedMonth = month || new Date().toISOString().slice(0, 7);
 
-  const result = await db.query(
-    `SELECT DISTINCT ml.scheduled_time::date AS day
-     FROM medicine_stock.medication_logs ml
-     JOIN medicine_stock.medicines m ON ml.medicine_id = m.id
-     WHERE m.user_id = $1
-       AND to_char(ml.scheduled_time, 'YYYY-MM') = $2
-     ORDER BY day ASC`,
-    [patientId, resolvedMonth],
-  );
+  const [result, patientUser] = await Promise.all([
+    db.query(
+      `SELECT DISTINCT ml.scheduled_time::date AS day
+       FROM medicine_stock.medication_logs ml
+       JOIN medicine_stock.medicines m ON ml.medicine_id = m.id
+       WHERE m.user_id = $1
+         AND to_char(ml.scheduled_time, 'YYYY-MM') = $2
+       ORDER BY day ASC`,
+      [patientId, resolvedMonth],
+    ),
+    User.findById(patientId),
+  ]);
+
+  const patientFullName = patientUser
+    ? [patientUser.firstName, patientUser.lastName].filter(Boolean).join(' ')
+    : 'Paciente';
 
   const events = result.rows.map((row) => ({
     date: new Date(row.day).toISOString().slice(0, 10),
@@ -178,6 +185,7 @@ async function getPatientCalendar(caregiverId, patientId, month) {
 
   return {
     patientId: Number(patientId),
+    patientName: patientFullName,
     month: resolvedMonth,
     events,
   };
@@ -185,33 +193,50 @@ async function getPatientCalendar(caregiverId, patientId, month) {
 
 /**
  * Devuelve las dosis programadas de un dia especifico para el paciente
- * (SCRUM-86). Antes era un stub que siempre devolvia doses: [].
+ * (SCRUM-86).
  */
 async function getPatientDoses(caregiverId, patientId, date) {
   await assertActiveAcceptedRelationship(caregiverId, patientId);
 
   const resolvedDate = date || new Date().toISOString().slice(0, 10);
 
-  const result = await db.query(
-    `SELECT
-        ml.id,
-        ml.scheduled_time,
-        m.id AS medicine_id,
-        m.name AS medicine_name,
-        ds.name AS status_name
-     FROM medicine_stock.medication_logs ml
-     JOIN medicine_stock.medicines m ON ml.medicine_id = m.id
-     JOIN medicine_stock.dose_status ds ON ml.status_id = ds.id
-     WHERE m.user_id = $1
-       AND ml.scheduled_time::date = $2::date
-     ORDER BY ml.scheduled_time ASC`,
-    [patientId, resolvedDate],
-  );
+  const [result, patientUser] = await Promise.all([
+    db.query(
+      `SELECT
+          ml.id,
+          ml.scheduled_time,
+          m.id AS medicine_id,
+          m.name AS medicine_name,
+          m.image AS medicine_image,
+          m.dose AS dose_quantity,
+          mu.code AS dose_unit,
+          pf.name AS pharmaceutical_form,
+          ds.name AS status_name
+       FROM medicine_stock.medication_logs ml
+       JOIN medicine_stock.medicines m ON ml.medicine_id = m.id
+       JOIN medicine_stock.pharmaceutical_forms pf ON m.pharmaceutical_form_id = pf.id
+       LEFT JOIN medicine_stock.measurement_units mu ON pf.measurement_unit_id = mu.id
+       JOIN medicine_stock.dose_status ds ON ml.status_id = ds.id
+       WHERE m.user_id = $1
+         AND ml.scheduled_time::date = $2::date
+       ORDER BY ml.scheduled_time ASC`,
+      [patientId, resolvedDate],
+    ),
+    User.findById(patientId),
+  ]);
+
+  const patientFullName = patientUser
+    ? [patientUser.firstName, patientUser.lastName].filter(Boolean).join(' ')
+    : 'Paciente';
 
   const doses = result.rows.map((row) => ({
     id: row.id,
     medicineId: row.medicine_id,
     medicineName: row.medicine_name,
+    image: row.medicine_image,
+    doseAmount: Number(row.dose_quantity),
+    doseUnit: row.dose_unit || 'mg',
+    pharmaceuticalForm: row.pharmaceutical_form || 'Tableta',
     scheduledTime: new Date(row.scheduled_time).toLocaleTimeString('es-HN', {
       hour: 'numeric',
       minute: '2-digit',
@@ -223,6 +248,7 @@ async function getPatientDoses(caregiverId, patientId, date) {
 
   return {
     patientId: Number(patientId),
+    patientName: patientFullName,
     date: resolvedDate,
     doses,
   };
