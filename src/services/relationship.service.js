@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const db = require('../config/db');
 const CaregiverRelationship = require('../models/caregiver-relationship.model');
 const InvitationToken = require('../models/invitation-token.model');
+const NotificationModel = require('../models/notification.model');
 const User = require('../models/user.model');
 const { createHttpError, normalizeEmail } = require('../utils/helpers');
 const emailService = require('./email.service');
@@ -142,7 +143,7 @@ async function updateRelationshipActiveStatus(relationshipId, payload, currentUs
     action: payload.active ? 'relationship_reactivated' : 'relationship_paused',
     relationship: updatedRelationship,
     status: 'success',
-  }
+  };
 }
 
 async function createPendingRelationship(relationship, client = db) {
@@ -157,12 +158,31 @@ async function createPendingRelationship(relationship, client = db) {
   }
 
   try {
-    return await CaregiverRelationship.create(relationship, client);
+    const createdRelationship = await CaregiverRelationship.create(relationship, client);
+
+    try {
+      const initiatorId = relationship.initiatedBy === 'caregiver' ? relationship.caregiverId : relationship.patientId;
+      const recipientId = relationship.initiatedBy === 'caregiver' ? relationship.patientId : relationship.caregiverId;
+      const initiatorUser = await User.findById(initiatorId, client);
+      const requesterName = [initiatorUser?.firstName, initiatorUser?.lastName].filter(Boolean).join(' ') || 'Un usuario de TrackPill';
+      const roleText = relationship.initiatedBy === 'caregiver' ? 'cuidador' : 'paciente';
+
+      await NotificationModel.create({
+        userId: recipientId,
+        type: 'caregiver_invitation',
+        message: `${requesterName} te invitó a unirte a su círculo de cuidado como ${roleText}.`,
+        patientId: initiatorId,
+      }, client);
+    } catch (notifErr) {
+      console.error('Error al crear notificación de solicitud:', notifErr);
+    }
+
+    return createdRelationship;
   } catch (error) {
     if (error?.code === '23505') {
       throw createHttpError(
         409,
-        'Ya existe una relacion pendiente o aceptada entre estos usuarios.',
+        'Ya existe una relación pendiente o aceptada entre estos usuarios.',
         'relationship_already_exists',
       );
     }
@@ -356,8 +376,8 @@ async function getPendingIncomingRequests(userId) {
 async function getRelationshipsList(userId, direction) {
   if (!['caregivers', 'patients'].includes(direction)) {
     throw createHttpError(
-      400, 
-      'El parámetro direction es inválido. Debe ser "caregivers" o "patients".', 
+      400,
+      'El parámetro direction es inválido. Debe ser "caregivers" o "patients".',
       'invalid_direction_parameter'
     );
   }
@@ -378,7 +398,7 @@ async function getRelationshipsList(userId, direction) {
  * @returns {Promise<Object>} Resultado de la operación.
  */
 async function deleteRelationship(relationshipId, currentUser) {
-  
+
   const id = relationshipId;
 
   const relationship = await CaregiverRelationship.findById(id);
