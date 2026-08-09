@@ -90,6 +90,12 @@ async function registerMedicine(userId, payload) {
     return createdMedicine;
   });
 
+  try {
+    await generateDailyDoses();
+  } catch (err) {
+    console.error('Failed to generate daily doses after registering medicine:', err);
+  }
+
   return { medicine };
 }
 
