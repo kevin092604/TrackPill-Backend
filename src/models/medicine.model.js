@@ -13,6 +13,7 @@ function mapMedicine(row) {
     pharmaceuticalFormId: row.pharmaceutical_form_id,
     currentStock: Number(row.current_stock),
     dose: Number(row.dose),
+    doseQuantity: row.dose_quantity !== undefined && row.dose_quantity !== null ? Number(row.dose_quantity) : 1.0,
     frequency: row.frequency,
     timeUnitId: row.time_unit_id,
     startTime: row.start_time,
@@ -33,6 +34,7 @@ async function create(medicine, client = db) {
         pharmaceutical_form_id,
         current_stock,
         dose,
+        dose_quantity,
         frequency,
         time_unit_id,
         start_time,
@@ -42,7 +44,7 @@ async function create(medicine, client = db) {
         low_stock_threshold,
         user_id
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING *
     `,
     [
@@ -51,6 +53,7 @@ async function create(medicine, client = db) {
       medicine.pharmaceuticalFormId,
       medicine.currentStock,
       medicine.dose,
+      medicine.doseQuantity || 1.0,
       medicine.frequency,
       medicine.timeUnitId,
       medicine.startTime,
@@ -115,6 +118,7 @@ async function findAllByUserId(userId, search = '', client = db) {
         m.name,
         m.image,
         m.dose,
+        m.dose_quantity,
         m.frequency,
         tu.name AS time_unit,
         pf.name AS pharmaceutical_form,
@@ -135,6 +139,7 @@ async function findAllByUserId(userId, search = '', client = db) {
     name: row.name,
     image: row.image,
     dose: Number(row.dose),
+    doseQuantity: row.dose_quantity !== undefined && row.dose_quantity !== null ? Number(row.dose_quantity) : 1.0,
     frequency: row.frequency,
     timeUnit: row.time_unit,
     pharmaceuticalForm: row.pharmaceutical_form,
@@ -156,6 +161,7 @@ async function findDetailById(medicineId, client = db) {
         m.pharmaceutical_form_id,
         m.current_stock,
         m.dose,
+        m.dose_quantity,
         m.frequency,
         m.time_unit_id,
         m.start_time,
@@ -195,6 +201,7 @@ async function findDetailById(medicineId, client = db) {
     pharmaceuticalFormName: row.pharmaceutical_form_name,
     currentStock: Number(row.current_stock),
     dose: Number(row.dose),
+    doseQuantity: row.dose_quantity !== undefined && row.dose_quantity !== null ? Number(row.dose_quantity) : 1.0,
     frequency: row.frequency,
     timeUnitId: row.time_unit_id,
     timeUnitName: row.time_unit_name,
@@ -234,6 +241,7 @@ async function update(id, data, client = db) {
   if (data.pharmaceuticalFormId !== undefined) { fields.push(`pharmaceutical_form_id = $${index++}`); values.push(data.pharmaceuticalFormId); }
   if (data.currentStock !== undefined) { fields.push(`current_stock = $${index++}`); values.push(data.currentStock); }
   if (data.dose !== undefined) { fields.push(`dose = $${index++}`); values.push(data.dose); }
+  if (data.doseQuantity !== undefined) { fields.push(`dose_quantity = $${index++}`); values.push(data.doseQuantity); }
   if (data.frequency !== undefined) { fields.push(`frequency = $${index++}`); values.push(data.frequency); }
   if (data.timeUnitId !== undefined) { fields.push(`time_unit_id = $${index++}`); values.push(data.timeUnitId); }
   if (data.startTime !== undefined) { fields.push(`start_time = $${index++}`); values.push(data.startTime); }

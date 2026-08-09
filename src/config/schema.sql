@@ -254,6 +254,7 @@ CREATE TABLE IF NOT EXISTS medicine_stock.medicines (
   pharmaceutical_form_id INT NOT NULL REFERENCES medicine_stock.pharmaceutical_forms(id) ON DELETE RESTRICT,
   current_stock NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
   dose NUMERIC(10, 2) NOT NULL DEFAULT 1.00,
+  dose_quantity NUMERIC(10, 2) NOT NULL DEFAULT 1.00,
   frequency INT NOT NULL,
   time_unit_id INT NOT NULL REFERENCES medicine_stock.time_units(id) ON DELETE RESTRICT,
   start_time TIME NOT NULL,

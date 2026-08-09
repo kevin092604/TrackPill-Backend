@@ -79,8 +79,7 @@ async function getTodayStats(patientId) {
     const result = await db.query(`
         SELECT 
             COUNT(*) AS total_scheduled,
-            SUM(CASE WHEN ml.status_id = 2 THEN 1 ELSE 0 END) AS completed,
-            SUM(CASE WHEN ml.status_id IN (1, 3) THEN 1 ELSE 0 END) AS pending
+            SUM(CASE WHEN ml.status_id = 2 THEN 1 ELSE 0 END) AS completed
         FROM medicine_stock.medication_logs ml
         JOIN medicine_stock.medicines m ON ml.medicine_id = m.id
         WHERE m.user_id = $1 
@@ -89,7 +88,7 @@ async function getTodayStats(patientId) {
 
     const scheduled = parseInt(result.rows[0]?.total_scheduled, 10) || 0;
     const completed = parseInt(result.rows[0]?.completed, 10) || 0;
-    const pending = parseInt(result.rows[0]?.pending, 10) || 0;
+    const pending = Math.max(0, scheduled - completed);
 
     return { scheduled, completed, pending };
 }

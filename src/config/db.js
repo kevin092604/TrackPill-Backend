@@ -17,7 +17,12 @@ async function connectDB() {
   }
 
   const client = await pool.connect();
-  client.release();
+  try {
+    const runMigration = require('../migrations/add-dose-quantity-column');
+    await runMigration(client);
+  } finally {
+    client.release();
+  }
 }
 
 function query(text, params) {

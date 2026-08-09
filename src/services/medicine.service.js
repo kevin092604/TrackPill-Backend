@@ -8,6 +8,7 @@ const inventoryService = require('./inventory.service');
 const storageService = require('./storage.service');
 const { createHttpError } = require('../utils/helpers');
 const generateDailyDoses = require('../jobs/generate-daily-doses');
+const CaregiverRelationship = require('../models/caregiver-relationship.model');
 
 const ALLOWED_PHOTO_MIME_TYPES = new Set(['image/bmp', 'image/jpeg', 'image/png']);
 
@@ -30,6 +31,7 @@ const registerMedicineSchema = z.object(
       .min(0, 'El inventario no puede ser negativo.'),
     dose: z.coerce.number({ invalid_type_error: 'Ingresa la dosis.' })
       .positive('Ingresa una dosis válida'),
+    doseQuantity: z.coerce.number().positive('Ingresa una cantidad por toma válida.').optional().default(1.0),
     frequency: z.number().int().positive('Ingresa una frecuencia válida.'),
     timeUnitId: z.number().int().positive('Ingresa una unidad de tiempo válida.'),
     startTime: z.string().regex(TIME_REGEX, 'Formato de hora de inicio inválido.'),
@@ -75,6 +77,7 @@ async function registerMedicine(userId, payload) {
         pharmaceuticalFormId: data.pharmaceuticalFormId,
         currentStock: data.currentStock,
         dose: data.dose,
+        doseQuantity: data.doseQuantity || 1.0,
         frequency: data.frequency,
         timeUnitId: data.timeUnitId,
         startTime: data.startTime,
@@ -151,8 +154,11 @@ async function getMedicineDetail(medicineId, userId) {
     throw createHttpError(404, 'Medicamento no encontrado.', 'medicine_not_found');
   }
 
-  if (detail.userId !== userId) {
-    throw createHttpError(403, 'No tienes permiso para ver este medicamento.', 'unauthorized');
+  if (String(detail.userId) !== String(userId)) {
+    const relationship = await CaregiverRelationship.findOpenBetween(userId, detail.userId);
+    if (!relationship || relationship.status !== 'aceptada' || !relationship.active) {
+      throw createHttpError(403, 'No tienes permiso para ver este medicamento.', 'unauthorized');
+    }
   }
 
   // A. Calcular estimación de días de inventario restantes. Cada toma
@@ -341,11 +347,10 @@ async function registerDoseStatus(medicineId, doseId, userId, payload) {
       const movementTypeId = movementTypeResult.rows[0]?.id;
 
       if (movementTypeId) {
-        // Cada toma consume 1 unidad de inventario (ej. 1 comprimido), no
-        // `medicine.dose` (que es la concentracion por unidad, ej. 50mg).
+        const intakeQuantity = Number(medicine.doseQuantity || 1);
         updatedMedicine = await inventoryService.recordStockMovement(
           medicineId,
-          1,
+          intakeQuantity,
           movementTypeId,
           client,
         );
