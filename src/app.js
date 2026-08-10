@@ -25,7 +25,9 @@ app.set('trust proxy', 1);
 const corsOrigin = process.env.CORS_ORIGIN || '*';
 
 app.use(cors({ origin: corsOrigin === '*' ? '*' : corsOrigin.split(',') }));
-app.use(express.json({ limit: '1mb' }));
+// Limite elevado respecto al original (1mb) para admitir fotos en base64
+// enviadas al chatbot (Tuchi IA con vision real via Bedrock).
+app.use(express.json({ limit: '8mb' }));
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
 app.get('/health', (_req, res) => {

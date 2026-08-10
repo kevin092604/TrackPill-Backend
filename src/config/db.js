@@ -28,6 +28,8 @@ async function connectDB() {
     await runSearchHistoryAndLocationsMigration(client);
     const runConversationsPatientIdMigration = require('../migrations/add-conversations-patient-id-column');
     await runConversationsPatientIdMigration(client);
+    const runMessagesImageUrlMigration = require('../migrations/add-messages-image-url-column');
+    await runMessagesImageUrlMigration(client);
   } finally {
     client.release();
   }

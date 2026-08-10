@@ -5,8 +5,8 @@ const chatbotService = require('../services/chatbot.service');
  */
 async function sendMessage(req, res, next) {
   try {
-    const { conversationId, message, patientId } = req.body;
-    const result = await chatbotService.sendMessage(req.user.id, conversationId, message, patientId);
+    const { conversationId, message, patientId, image } = req.body;
+    const result = await chatbotService.sendMessage(req.user.id, conversationId, message, patientId, image);
 
     res.status(200).json({ success: true, ...result });
   } catch (error) {
@@ -23,7 +23,7 @@ function writeSseEvent(res, event, data) {
  * respuesta en vivo por Server-Sent Events a medida que el modelo la genera.
  */
 async function sendMessageStream(req, res, next) {
-  const { conversationId, message, patientId } = req.body;
+  const { conversationId, message, patientId, image } = req.body;
 
   try {
     res.writeHead(200, {
@@ -33,7 +33,7 @@ async function sendMessageStream(req, res, next) {
       'X-Accel-Buffering': 'no',
     });
 
-    await chatbotService.sendMessageStream(req.user.id, conversationId, message, patientId, {
+    await chatbotService.sendMessageStream(req.user.id, conversationId, message, patientId, image, {
       onMeta: (meta) => writeSseEvent(res, 'meta', meta),
       onDelta: (text) => writeSseEvent(res, 'delta', { text }),
       onDone: (result) => {

@@ -500,5 +500,10 @@ CREATE TABLE IF NOT EXISTS assistant.messages (
   CONSTRAINT assistant_messages_role_check CHECK (role IN ('user', 'assistant'))
 );
 
+-- Foto adjunta opcional a un mensaje del usuario (se sube a S3, Bedrock la
+-- analiza como parte del turno en que se envio).
+ALTER TABLE assistant.messages
+  ADD COLUMN IF NOT EXISTS image_url VARCHAR(1000);
+
 CREATE INDEX IF NOT EXISTS assistant_messages_conversation_idx
   ON assistant.messages (conversation_id, creation_date ASC);

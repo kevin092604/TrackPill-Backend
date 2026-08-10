@@ -6,7 +6,16 @@ const CaregiverRelationship = require('../models/caregiver-relationship.model');
 const dashboardService = require('./dashboard.service');
 const medicineService = require('./medicine.service');
 const subscriptionService = require('./subscription.service');
+const storageService = require('./storage.service');
 const { createHttpError, getRequiredEnv } = require('../utils/helpers');
+
+const IMAGE_FORMAT_BY_MIME_TYPE = {
+  'image/jpeg': 'jpeg',
+  'image/jpg': 'jpeg',
+  'image/png': 'png',
+  'image/gif': 'gif',
+  'image/webp': 'webp',
+};
 
 const MODEL_ID = process.env.BEDROCK_MODEL_ID || 'us.anthropic.claude-sonnet-4-5-20250929-v1:0';
 const MAX_TOKENS = Number(process.env.CHATBOT_MAX_TOKENS) || 1024;
@@ -257,9 +266,22 @@ async function runConversationLoop(effectivePatientId, messages, systemPrompt, o
   return fullText.trim() || 'Lo siento, no pude generar una respuesta en este momento. Intenta de nuevo en unos minutos.';
 }
 
-async function prepareConversation(userId, conversationId, patientId, userMessage) {
-  if (!userMessage || !userMessage.trim()) {
+async function prepareConversation(userId, conversationId, patientId, userMessage, imageAttachment) {
+  const trimmedMessage = (userMessage || '').trim();
+
+  if (!trimmedMessage && !imageAttachment) {
     throw createHttpError(400, 'El mensaje no puede estar vacío.', 'empty_message');
+  }
+
+  let imageFormat = null;
+  let imageBuffer = null;
+
+  if (imageAttachment) {
+    imageFormat = IMAGE_FORMAT_BY_MIME_TYPE[imageAttachment.mimeType];
+    if (!imageFormat) {
+      throw createHttpError(422, 'Formato de imagen no soportado. Usa JPG, PNG, GIF o WEBP.', 'unsupported_image_format');
+    }
+    imageBuffer = Buffer.from(imageAttachment.base64Data, 'base64');
   }
 
   await enforceUsageLimit(userId);
@@ -273,18 +295,32 @@ async function prepareConversation(userId, conversationId, patientId, userMessag
   if (!conversation) {
     conversation = await conversationModel.create(
       userId,
-      userMessage.trim().slice(0, 60),
+      (trimmedMessage || 'Imagen enviada').slice(0, 60),
       effectivePatientId !== userId ? effectivePatientId : null,
     );
   }
 
-  await messageModel.create(conversation.id, 'user', userMessage.trim());
+  // Sube la imagen real a S3 (mismo servicio que la foto de perfil) para
+  // poder mostrarla despues en el historial de la conversacion.
+  const imageUrl = imageBuffer
+    ? await storageService.uploadPublicFile(`chat-images/${userId}`, { buffer: imageBuffer, mimetype: imageAttachment.mimeType })
+    : null;
+
+  await messageModel.create(conversation.id, 'user', trimmedMessage || '(Imagen enviada)', imageUrl);
 
   const history = await messageModel.findByConversationId(conversation.id);
-  const messages = history.map((entry) => ({
-    role: entry.role,
-    content: [{ text: entry.content }],
-  }));
+  const lastIndex = history.length - 1;
+  const messages = history.map((entry, index) => {
+    const content = [{ text: entry.content }];
+
+    // Solo el turno actual lleva los bytes reales de la imagen a Bedrock
+    // (vision real); no se re-envian imagenes de turnos anteriores.
+    if (index === lastIndex && imageBuffer) {
+      content.push({ image: { format: imageFormat, source: { bytes: imageBuffer } } });
+    }
+
+    return { role: entry.role, content };
+  });
 
   return { conversation, effectivePatientId, messages };
 }
@@ -293,9 +329,9 @@ async function prepareConversation(userId, conversationId, patientId, userMessag
  * Envía un mensaje del usuario a Tuchi IA y retorna la respuesta completa
  * (sin streaming). Util para clientes que no consumen SSE.
  */
-async function sendMessage(userId, conversationId, userMessage, patientId) {
+async function sendMessage(userId, conversationId, userMessage, patientId, imageAttachment) {
   const { conversation, effectivePatientId, messages } = await prepareConversation(
-    userId, conversationId, patientId, userMessage,
+    userId, conversationId, patientId, userMessage, imageAttachment,
   );
 
   const systemPrompt = buildSystemPrompt(effectivePatientId !== userId);
@@ -314,9 +350,9 @@ async function sendMessage(userId, conversationId, userMessage, patientId) {
  * Igual que sendMessage, pero transmite cada fragmento de texto en vivo a
  * través de los callbacks provistos (para exponerlo como Server-Sent Events).
  */
-async function sendMessageStream(userId, conversationId, userMessage, patientId, handlers) {
+async function sendMessageStream(userId, conversationId, userMessage, patientId, imageAttachment, handlers) {
   const { conversation, effectivePatientId, messages } = await prepareConversation(
-    userId, conversationId, patientId, userMessage,
+    userId, conversationId, patientId, userMessage, imageAttachment,
   );
 
   if (handlers.onMeta) {

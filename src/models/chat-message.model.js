@@ -10,16 +10,17 @@ function mapMessage(row) {
     conversationId: row.conversation_id,
     role: row.role,
     content: row.content,
+    imageUrl: row.image_url,
     createdAt: row.creation_date,
   };
 }
 
-async function create(conversationId, role, content, client = db) {
+async function create(conversationId, role, content, imageUrl = null, client = db) {
   const result = await client.query(
-    `INSERT INTO assistant.messages (conversation_id, role, content)
-     VALUES ($1, $2, $3)
+    `INSERT INTO assistant.messages (conversation_id, role, content, image_url)
+     VALUES ($1, $2, $3, $4)
      RETURNING *`,
-    [conversationId, role, content],
+    [conversationId, role, content, imageUrl],
   );
 
   return mapMessage(result.rows[0]);
