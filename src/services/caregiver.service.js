@@ -157,20 +157,20 @@ async function getPatientMedicines(caregiverId, patientId, search = '') {
  * Devuelve los dias del mes que tienen alguna dosis programada para el
  * paciente (SCRUM-85). Antes era un stub que siempre devolvia events: [].
  */
-async function getPatientCalendar(caregiverId, patientId, month) {
+async function getPatientCalendar(caregiverId, patientId, month, timezone = 'America/Tegucigalpa') {
   await assertActiveAcceptedRelationship(caregiverId, patientId);
 
   const resolvedMonth = month || new Date().toISOString().slice(0, 7);
 
   const [result, patientUser] = await Promise.all([
     db.query(
-      `SELECT DISTINCT ml.scheduled_time::date AS day
+      `SELECT DISTINCT ((ml.scheduled_time AT TIME ZONE $3)::date)::text AS day
        FROM medicine_stock.medication_logs ml
        JOIN medicine_stock.medicines m ON ml.medicine_id = m.id
        WHERE m.user_id = $1
-         AND to_char(ml.scheduled_time, 'YYYY-MM') = $2
+         AND to_char(ml.scheduled_time AT TIME ZONE $3, 'YYYY-MM') = $2
        ORDER BY day ASC`,
-      [patientId, resolvedMonth],
+      [patientId, resolvedMonth, timezone],
     ),
     User.findById(patientId),
   ]);
@@ -180,7 +180,7 @@ async function getPatientCalendar(caregiverId, patientId, month) {
     : 'Paciente';
 
   const events = result.rows.map((row) => ({
-    date: new Date(row.day).toISOString().slice(0, 10),
+    date: row.day,
   }));
 
   return {
@@ -195,7 +195,7 @@ async function getPatientCalendar(caregiverId, patientId, month) {
  * Devuelve las dosis programadas de un dia especifico para el paciente
  * (SCRUM-86).
  */
-async function getPatientDoses(caregiverId, patientId, date) {
+async function getPatientDoses(caregiverId, patientId, date, timezone = 'America/Tegucigalpa') {
   await assertActiveAcceptedRelationship(caregiverId, patientId);
 
   const resolvedDate = date || new Date().toISOString().slice(0, 10);
@@ -218,9 +218,9 @@ async function getPatientDoses(caregiverId, patientId, date) {
        LEFT JOIN medicine_stock.measurement_units mu ON pf.measurement_unit_id = mu.id
        JOIN medicine_stock.dose_status ds ON ml.status_id = ds.id
        WHERE m.user_id = $1
-         AND ml.scheduled_time::date = $2::date
+         AND (ml.scheduled_time AT TIME ZONE $3)::date = $2::date
        ORDER BY ml.scheduled_time ASC`,
-      [patientId, resolvedDate],
+      [patientId, resolvedDate, timezone],
     ),
     User.findById(patientId),
   ]);
@@ -241,7 +241,7 @@ async function getPatientDoses(caregiverId, patientId, date) {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
-      timeZone: 'America/Tegucigalpa',
+      timeZone: timezone,
     }),
     status: row.status_name,
   }));

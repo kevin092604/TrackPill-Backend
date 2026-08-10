@@ -80,45 +80,43 @@ async function getPatientSummary(patientId, userTimezone = 'America/Tegucigalpa'
         dose: `${Number(dbNextDose.dose)} ${dbNextDose.pharmaceutical_form}`
     } : null;
 
-    const { monday, sunday } = getCurrentWeekBounds();
+    const weekDaysQuery = await pool.query(
+        `SELECT
+            (date_trunc('week', NOW() AT TIME ZONE $1) + (i || ' day')::interval)::date::text AS date_str,
+            to_char(date_trunc('week', NOW() AT TIME ZONE $1) + (i || ' day')::interval, 'Dy') AS day_code
+         FROM generate_series(0, 6) AS i`,
+        [ tz ]
+    );
+
     const weeklyLogsQuery = await pool.query(
         `SELECT
-            ml.scheduled_time,
+            (ml.scheduled_time AT TIME ZONE $2)::date::text AS log_date,
             ml.status_id
          FROM medicine_stock.medication_logs ml
          JOIN medicine_stock.medicines m ON ml.medicine_id = m.id
          WHERE m.user_id = $1
-            AND ml.scheduled_time >= $2
-            AND ml.scheduled_time <= $3`,
-        [ patientId, monday, sunday ]
+            AND (ml.scheduled_time AT TIME ZONE $2) >= date_trunc('week', NOW() AT TIME ZONE $2)
+            AND (ml.scheduled_time AT TIME ZONE $2) < date_trunc('week', NOW() AT TIME ZONE $2) + INTERVAL '7 days'`,
+        [ patientId, tz ]
     );
     const weeklyLogs = weeklyLogsQuery.rows;
 
     const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    const weeklyAdherence = [];
-
-    for (let i = 0; i < 7; i++) {
-        const dayDate = new Date(monday);
-        dayDate.setDate(monday.getDate() + i);
-
-        const dayLogs = weeklyLogs.filter(log => {
-            const logDate = new Date(log.scheduled_time);
-            return logDate.toDateString() === dayDate.toDateString();
-        });
-
+    const weeklyAdherence = weekDaysQuery.rows.map((dayRow, index) => {
+        const dayLogs = weeklyLogs.filter(log => log.log_date === dayRow.date_str);
         const scheduled = dayLogs.length;
         const completed = dayLogs.filter(log => log.status_id === 2).length;
         const pending = scheduled - completed;
         const percentage = scheduled > 0 ? Number(((completed / scheduled) * 100).toFixed(1)) : 0;
 
-        weeklyAdherence.push({
-            day: dayNames[i],
+        return {
+            day: dayNames[index],
             scheduled,
             completed,
             pending,
             percentage
-        });
-    }
+        };
+    });
 
     return {
         today,

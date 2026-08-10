@@ -16,6 +16,7 @@ async function getPatientCalendar(req, res, next) {
     try {
         const { month } = req.query;
         const { patientId } = req.params;
+        const timezone = req.headers['x-timezone'] || req.query.timezone || 'America/Tegucigalpa';
 
         // Valida que el mes sea correcto
         if (month && !/^\d{4}-\d{2}$/.test(month)) {
@@ -26,7 +27,7 @@ async function getPatientCalendar(req, res, next) {
             );
         }
 
-        const data = await caregiverService.getPatientCalendar(req.user.id, patientId, month);
+        const data = await caregiverService.getPatientCalendar(req.user.id, patientId, month, timezone);
 
         res.status(200).json({
             success: true,
@@ -52,6 +53,7 @@ async function getPatientDoses(req, res, next) {
     try {
         const { date } = req.query;
         const { patientId } = req.params;
+        const timezone = req.headers['x-timezone'] || req.query.timezone || 'America/Tegucigalpa';
 
         if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
             throw createHttpError(
@@ -61,7 +63,7 @@ async function getPatientDoses(req, res, next) {
             );
         }
 
-        const data = await caregiverService.getPatientDoses(req.user.id, patientId, date);
+        const data = await caregiverService.getPatientDoses(req.user.id, patientId, date, timezone);
 
         res.status(200).json({
             success: true,
