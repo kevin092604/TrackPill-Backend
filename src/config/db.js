@@ -20,6 +20,12 @@ async function connectDB() {
   try {
     const runMigration = require('../migrations/add-dose-quantity-column');
     await runMigration(client);
+    const runPharmacyPricesIndexMigration = require('../migrations/add-pharmacy-prices-place-index');
+    await runPharmacyPricesIndexMigration(client);
+    const runPharmacyFavoritesMigration = require('../migrations/add-pharmacy-favorites-table');
+    await runPharmacyFavoritesMigration(client);
+    const runSearchHistoryAndLocationsMigration = require('../migrations/add-pharmacy-search-history-and-locations');
+    await runSearchHistoryAndLocationsMigration(client);
   } finally {
     client.release();
   }

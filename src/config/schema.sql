@@ -325,6 +325,11 @@ CREATE TABLE IF NOT EXISTS medicine_stock.pharmacy_prices (
 CREATE INDEX IF NOT EXISTS pharmacy_prices_lookup_idx
   ON medicine_stock.pharmacy_prices (medicine_name_normalized, country_code);
 
+-- Acelera el lookup de precio directo por farmacia (medicine_name_normalized +
+-- pharmacy_place_id), usado por comparePricesAcrossPharmacies (Problema 3).
+CREATE INDEX IF NOT EXISTS pharmacy_prices_name_place_idx
+  ON medicine_stock.pharmacy_prices (medicine_name_normalized, pharmacy_place_id);
+
 -- HU-24: listas guardadas de medicamentos para comparar precios (SCRUM-144)
 CREATE TABLE IF NOT EXISTS medicine_stock.saved_medicine_lists (
   id BIGSERIAL PRIMARY KEY,
@@ -343,6 +348,53 @@ CREATE TABLE IF NOT EXISTS medicine_stock.saved_medicine_list_items (
   medicine_name VARCHAR(255) NOT NULL,
   creation_date TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Farmacias favoritas del usuario (mockup "Farmacias favoritas"). Las
+-- farmacias en si no se persisten (vienen en vivo de OpenStreetMap), asi que
+-- guardamos aqui una copia minima de sus datos reales al marcarlas.
+CREATE TABLE IF NOT EXISTS medicine_stock.pharmacy_favorites (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  pharmacy_place_id VARCHAR(255) NOT NULL,
+  pharmacy_name VARCHAR(255) NOT NULL,
+  address VARCHAR(500),
+  latitude NUMERIC(10, 6),
+  longitude NUMERIC(10, 6),
+  country_code VARCHAR(5) NOT NULL DEFAULT 'HN',
+  creation_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT pharmacy_favorites_user_place_unique UNIQUE (user_id, pharmacy_place_id)
+);
+
+CREATE INDEX IF NOT EXISTS pharmacy_favorites_user_idx
+  ON medicine_stock.pharmacy_favorites (user_id);
+
+-- Historial real de búsquedas de medicamentos en Farmacias (mockup "Historial
+-- de búsquedas"). Se registra automáticamente cada vez que el usuario busca.
+CREATE TABLE IF NOT EXISTS medicine_stock.pharmacy_search_history (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  search_term VARCHAR(255) NOT NULL,
+  searched_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS pharmacy_search_history_user_idx
+  ON medicine_stock.pharmacy_search_history (user_id, searched_at DESC);
+
+-- Ubicaciones guardadas del usuario (mockup "Mis ubicaciones"), con
+-- coordenadas reales (GPS o geocodificadas via Nominatim/OSM).
+CREATE TABLE IF NOT EXISTS medicine_stock.saved_locations (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  label VARCHAR(120) NOT NULL,
+  address VARCHAR(500),
+  latitude NUMERIC(10, 6) NOT NULL,
+  longitude NUMERIC(10, 6) NOT NULL,
+  is_default BOOLEAN NOT NULL DEFAULT FALSE,
+  creation_date TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS saved_locations_user_idx
+  ON medicine_stock.saved_locations (user_id);
 
 CREATE INDEX IF NOT EXISTS saved_medicine_list_items_list_idx
   ON medicine_stock.saved_medicine_list_items (list_id);

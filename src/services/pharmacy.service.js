@@ -38,6 +38,19 @@ const SEED_MEDICINE_DISPLAY_NAMES = {
   acetaminofen: 'Acetaminofén',
 };
 
+// Cache en memoria de farmacias cercanas por celda de coordenadas, para evitar
+// golpear repetidamente la API externa de Overpass (causa principal de la
+// lentitud reportada al usar una lista guardada). TTL corto porque las
+// farmacias reales no aparecen/desaparecen de un minuto a otro.
+const NEARBY_CACHE_TTL_MS = 5 * 60 * 1000;
+const nearbyPharmacyCache = new Map();
+
+function nearbyCacheKey(lat, lng) {
+  // Redondeado a ~1.1km (2 decimales) para agrupar coordenadas casi idénticas
+  // (mismo dispositivo/ubicación) sin perder precisión real de búsqueda.
+  return `${Number(lat).toFixed(2)},${Number(lng).toFixed(2)}`;
+}
+
 /**
  * Genera una variación determinista del precio en porcentaje (-15% a +15%) basada en el ID de la farmacia.
  * Esto asegura que los precios simulados no cambien al refrescar la pantalla.
@@ -105,8 +118,16 @@ function getContingencyPharmacies(lat, lng) {
 /**
  * Busca farmacias reales cercanas a unas coordenadas (OpenStreetMap Overpass),
  * con las farmacias de contingencia como respaldo si la API externa falla.
+ * Usa un cache corto en memoria para evitar llamadas externas repetidas
+ * (Problema 3: "utilizar lista" tardaba ~10s por golpear Overpass cada vez).
  */
 async function fetchNearbyPharmacyLocations(lat, lng) {
+  const cacheKey = nearbyCacheKey(lat, lng);
+  const cached = nearbyPharmacyCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.pharmacies;
+  }
+
   let rawPharmacies = [];
 
   try {
@@ -137,6 +158,7 @@ async function fetchNearbyPharmacyLocations(lat, lng) {
           const city = el.tags?.['addr:city'] || '';
           const street = el.tags?.['addr:street'] || '';
           const address = [street, city].filter(Boolean).join(', ') || 'Dirección no disponible';
+          const phone = el.tags?.phone || el.tags?.['contact:phone'] || null;
 
           return {
             placeId: String(el.id),
@@ -145,6 +167,7 @@ async function fetchNearbyPharmacyLocations(lat, lng) {
             longitude,
             address,
             countryCode,
+            phone,
           };
         });
       }
@@ -157,56 +180,84 @@ async function fetchNearbyPharmacyLocations(lat, lng) {
     rawPharmacies = getContingencyPharmacies(lat, lng);
   }
 
+  nearbyPharmacyCache.set(cacheKey, { expiresAt: Date.now() + NEARBY_CACHE_TTL_MS, pharmacies: rawPharmacies });
+
   return rawPharmacies;
 }
 
 /**
- * Resuelve el precio (real, promedio de la comunidad, o estimado) de un
- * medicamento en una farmacia especifica.
+ * Trae en dos consultas batch (en vez de una por cada combinacion
+ * farmacia x medicamento) los precios reales directos y los promedios por
+ * pais para todas las farmacias/medicamentos involucrados. Elimina el N+1
+ * secuencial que causaba la lentitud del Problema 3.
  */
-async function resolvePriceForMedicineAtPharmacy(normalizedName, pharm) {
+async function fetchPriceMaps(normalizedNames, pharmacies) {
+  const placeIds = [...new Set(pharmacies.map((p) => p.placeId))];
+  const countryCodes = [...new Set(pharmacies.map((p) => p.countryCode))];
+
+  const [directResult, avgResult] = await Promise.all([
+    db.query(
+      `SELECT medicine_name_normalized, pharmacy_place_id, price, currency
+       FROM medicine_stock.pharmacy_prices
+       WHERE medicine_name_normalized = ANY($1::text[])
+         AND pharmacy_place_id = ANY($2::text[])`,
+      [normalizedNames, placeIds],
+    ),
+    db.query(
+      `SELECT medicine_name_normalized, country_code, AVG(price)::numeric(10,2) AS avg_price
+       FROM medicine_stock.pharmacy_prices
+       WHERE medicine_name_normalized = ANY($1::text[])
+         AND country_code = ANY($2::text[])
+       GROUP BY medicine_name_normalized, country_code`,
+      [normalizedNames, countryCodes],
+    ),
+  ]);
+
+  const directMap = new Map();
+  for (const row of directResult.rows) {
+    directMap.set(`${row.medicine_name_normalized}|${row.pharmacy_place_id}`, {
+      price: Number(row.price),
+      currency: row.currency,
+    });
+  }
+
+  const avgMap = new Map();
+  for (const row of avgResult.rows) {
+    avgMap.set(`${row.medicine_name_normalized}|${row.country_code}`, Number(row.avg_price));
+  }
+
+  return { directMap, avgMap };
+}
+
+/**
+ * Resuelve el precio (real, promedio de la comunidad, o estimado) de un
+ * medicamento en una farmacia especifica a partir de los mapas ya cargados
+ * en batch por `fetchPriceMaps` (sin consultas adicionales a la BD).
+ */
+function resolvePriceFromMaps(normalizedName, pharm, { directMap, avgMap }) {
   const currency = COUNTRY_CURRENCIES[pharm.countryCode] || 'HNL';
 
-  const directPriceQuery = await db.query(
-    `SELECT price, currency
-     FROM medicine_stock.pharmacy_prices
-     WHERE medicine_name_normalized = $1
-       AND pharmacy_place_id = $2
-     LIMIT 1`,
-    [normalizedName, pharm.placeId]
-  );
+  const direct = directMap.get(`${normalizedName}|${pharm.placeId}`);
+  if (direct) {
+    return { price: direct.price, currency: direct.currency, source: 'real' };
+  }
 
-  let price = null;
+  let basePrice = 0;
   let source = 'estimated';
 
-  if (directPriceQuery.rows.length > 0) {
-    price = Number(directPriceQuery.rows[0].price);
-    source = 'real';
+  const avgPrice = avgMap.get(`${normalizedName}|${pharm.countryCode}`);
+  if (avgPrice) {
+    basePrice = avgPrice;
+    source = 'crowd_sourced';
   } else {
-    const avgPriceQuery = await db.query(
-      `SELECT AVG(price)::numeric(10,2) AS avg_price
-       FROM medicine_stock.pharmacy_prices
-       WHERE medicine_name_normalized = $1
-         AND country_code = $2`,
-      [normalizedName, pharm.countryCode]
-    );
-
-    const dbAvg = avgPriceQuery.rows[0]?.avg_price;
-    let basePrice = 0;
-
-    if (dbAvg) {
-      basePrice = Number(dbAvg);
-      source = 'crowd_sourced';
-    } else {
-      const matchedKey = Object.keys(BASE_PRICES_HNL).find(key => normalizedName.includes(key)) || 'default';
-      const baseHnl = BASE_PRICES_HNL[matchedKey];
-      const rate = HNL_EXCHANGE_RATES[currency] || 1.0;
-      basePrice = baseHnl * rate;
-    }
-
-    const variationPercent = getHashVariation(pharm.placeId);
-    price = Number((basePrice * (1 + variationPercent / 100)).toFixed(2));
+    const matchedKey = Object.keys(BASE_PRICES_HNL).find((key) => normalizedName.includes(key)) || 'default';
+    const baseHnl = BASE_PRICES_HNL[matchedKey];
+    const rate = HNL_EXCHANGE_RATES[currency] || 1.0;
+    basePrice = baseHnl * rate;
   }
+
+  const variationPercent = getHashVariation(pharm.placeId);
+  const price = Number((basePrice * (1 + variationPercent / 100)).toFixed(2));
 
   return { price, currency, source };
 }
@@ -229,12 +280,12 @@ async function getNearbyPharmacies(medicineId, lat, lng, userId) {
 
   const normalizedName = normalizeMedicineName(medicine.name);
   const rawPharmacies = await fetchNearbyPharmacyLocations(lat, lng);
-  const results = [];
+  const priceMaps = await fetchPriceMaps([normalizedName], rawPharmacies);
 
-  for (const pharm of rawPharmacies) {
-    const { price, currency, source } = await resolvePriceForMedicineAtPharmacy(normalizedName, pharm);
+  const results = rawPharmacies.map((pharm) => {
+    const { price, currency, source } = resolvePriceFromMaps(normalizedName, pharm, priceMaps);
 
-    results.push({
+    return {
       placeId: pharm.placeId,
       name: pharm.name,
       latitude: Number(pharm.latitude),
@@ -244,8 +295,8 @@ async function getNearbyPharmacies(medicineId, lat, lng, userId) {
       price,
       currency,
       source,
-    });
-  }
+    };
+  });
 
   return results.sort((a, b) => a.price - b.price);
 }
@@ -254,7 +305,7 @@ async function getNearbyPharmacies(medicineId, lat, lng, userId) {
  * HU-22 / SCRUM-138: listado general de farmacias cercanas con distancia y
  * detalle, sin atarlo a un medicamento especifico.
  */
-async function getPharmaciesWithDistance(lat, lng) {
+async function getPharmaciesWithDistance(lat, lng, maxDistanceKm) {
   const latitude = Number(lat);
   const longitude = Number(lng);
   const rawPharmacies = await fetchNearbyPharmacyLocations(latitude, longitude);
@@ -267,8 +318,10 @@ async function getPharmaciesWithDistance(lat, lng) {
       longitude: Number(pharm.longitude),
       address: pharm.address,
       countryCode: pharm.countryCode,
+      phone: pharm.phone || null,
       distanceKm: haversineDistanceKm(latitude, longitude, Number(pharm.latitude), Number(pharm.longitude)),
     }))
+    .filter((pharm) => !maxDistanceKm || pharm.distanceKm <= maxDistanceKm)
     .sort((a, b) => a.distanceKm - b.distanceKm);
 }
 
@@ -316,38 +369,49 @@ function capitalize(value) {
  * HU-21 / SCRUM-134: dada una lista de nombres de medicamentos y una
  * ubicacion, calcula por farmacia el precio de cada medicamento, el costo
  * total, y destaca la farmacia mas economica.
+ *
+ * Optimizado (Problema 3): en vez de una consulta SQL por cada combinacion
+ * farmacia x medicamento (secuencial, hasta P*M round-trips), se cargan los
+ * precios en 2 consultas batch (`fetchPriceMaps`) y se resuelven en memoria.
  */
-async function comparePricesAcrossPharmacies(medicineNames, lat, lng) {
+async function comparePricesAcrossPharmacies(medicineNames, lat, lng, maxDistanceKm) {
   const latitude = Number(lat);
   const longitude = Number(lng);
-  const rawPharmacies = await fetchNearbyPharmacyLocations(latitude, longitude);
+  const allPharmacies = await fetchNearbyPharmacyLocations(latitude, longitude);
+  const rawPharmacies = maxDistanceKm
+    ? allPharmacies.filter((pharm) => haversineDistanceKm(
+      latitude, longitude, Number(pharm.latitude), Number(pharm.longitude),
+    ) <= maxDistanceKm)
+    : allPharmacies;
   const normalizedNames = medicineNames.map((name) => ({
     original: name,
     normalized: normalizeMedicineName(name),
   }));
 
-  const results = [];
+  const priceMaps = await fetchPriceMaps(normalizedNames.map((n) => n.normalized), rawPharmacies);
 
-  for (const pharm of rawPharmacies) {
-    const items = [];
+  const results = rawPharmacies.map((pharm) => {
     let totalCost = 0;
-
-    for (const { original, normalized } of normalizedNames) {
-      const { price, currency, source } = await resolvePriceForMedicineAtPharmacy(normalized, pharm);
+    const items = normalizedNames.map(({ original, normalized }) => {
+      const { price, currency, source } = resolvePriceFromMaps(normalized, pharm, priceMaps);
       totalCost += price;
-      items.push({ medicineName: original, price, currency, source });
-    }
+      return { medicineName: original, price, currency, source };
+    });
 
-    results.push({
+    return {
       placeId: pharm.placeId,
       name: pharm.name,
       address: pharm.address,
+      latitude: Number(pharm.latitude),
+      longitude: Number(pharm.longitude),
+      countryCode: pharm.countryCode,
+      phone: pharm.phone || null,
       distanceKm: haversineDistanceKm(latitude, longitude, Number(pharm.latitude), Number(pharm.longitude)),
       items,
       totalCost: Number(totalCost.toFixed(2)),
       currency: items[0]?.currency || 'HNL',
-    });
-  }
+    };
+  });
 
   results.sort((a, b) => a.totalCost - b.totalCost);
 
@@ -357,9 +421,45 @@ async function comparePricesAcrossPharmacies(medicineNames, lat, lng) {
   };
 }
 
+/**
+ * Ruta real en auto entre dos puntos usando el servicio publico de OSRM
+ * (Open Source Routing Machine, mismo ecosistema OSM que Overpass, sin API
+ * key). Devuelve distancia/duracion reales y la geometria de la ruta para
+ * dibujarla en el mapa (mockup "Ruta hacia la farmacia").
+ */
+async function getDrivingRoute(fromLat, fromLng, toLat, toLng) {
+  const url = `https://router.project-osrm.org/route/v1/driving/`
+    + `${fromLng},${fromLat};${toLng},${toLat}?overview=full&geometries=geojson`;
+
+  let response;
+  try {
+    response = await fetch(url);
+  } catch (error) {
+    throw createHttpError(502, 'No fue posible conectar con el servicio de rutas.', 'route_service_unreachable');
+  }
+
+  if (!response.ok) {
+    throw createHttpError(502, 'No fue posible calcular la ruta.', 'route_service_error');
+  }
+
+  const data = await response.json();
+  const route = data.routes?.[0];
+
+  if (!route) {
+    throw createHttpError(404, 'No se encontro una ruta entre los puntos indicados.', 'route_not_found');
+  }
+
+  return {
+    distanceKm: Number((route.distance / 1000).toFixed(2)),
+    durationMin: Math.round(route.duration / 60),
+    geometry: route.geometry, // GeoJSON LineString (coordenadas [lng, lat] reales)
+  };
+}
+
 module.exports = {
   getNearbyPharmacies,
   getPharmaciesWithDistance,
   searchMedicinesInPharmacies,
   comparePricesAcrossPharmacies,
+  getDrivingRoute,
 };
