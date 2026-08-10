@@ -53,23 +53,64 @@ async function getRecentActivity(patientId, limit = 5) {
  * @version 0.1.0
  * @since 2026/07/19
  */
-async function getWeeklyCompliance(patientId) {
-    const result = await db.query(`
-        SELECT 
-            COUNT(*) AS total_doses,
-            SUM(CASE WHEN status_id = 2 THEN 1 ELSE 0 END) AS doses_taken
-        FROM medicine_stock.medication_logs ml
-        JOIN medicine_stock.medicines m ON ml.medicine_id = m.id
-        WHERE m.user_id = $1 
-        AND ml.scheduled_time >= NOW() - INTERVAL '7 days'
-        AND ml.scheduled_time <= NOW()
-    `, [patientId]);
-    
-    const total = parseInt(result.rows[0].total_doses, 10) || 0;
-    const taken = parseInt(result.rows[0].doses_taken, 10) || 0;
-    const percentage = total > 0 ? Math.round((taken / total) * 100) : 0;
-    
-    return { percentage, dosesTaken: taken, totalDoses: total };
+async function getWeeklyCompliance(patientId, timezone = 'America/Tegucigalpa') {
+    const tz = String(timezone || 'America/Tegucigalpa').trim();
+
+    const weekDaysQuery = await db.query(
+        `SELECT
+            (date_trunc('week', NOW() AT TIME ZONE $1) + (i || ' day')::interval)::date::text AS date_str,
+            to_char(date_trunc('week', NOW() AT TIME ZONE $1) + (i || ' day')::interval, 'Dy') AS day_code
+         FROM generate_series(0, 6) AS i`,
+        [ tz ]
+    );
+
+    const logsQuery = await db.query(
+        `SELECT
+            (ml.scheduled_time AT TIME ZONE $2)::date::text AS log_date,
+            ml.status_id
+         FROM medicine_stock.medication_logs ml
+         JOIN medicine_stock.medicines m ON ml.medicine_id = m.id
+         WHERE m.user_id = $1
+           AND (ml.scheduled_time AT TIME ZONE $2) >= date_trunc('week', NOW() AT TIME ZONE $2)
+           AND (ml.scheduled_time AT TIME ZONE $2) < date_trunc('week', NOW() AT TIME ZONE $2) + INTERVAL '7 days'`,
+        [ patientId, tz ]
+    );
+
+    const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    let totalScheduled = 0;
+    let totalTaken = 0;
+
+    const days = weekDaysQuery.rows.map((dayRow, index) => {
+        const dayLogs = logsQuery.rows.filter(log => log.log_date === dayRow.date_str);
+        const scheduled = dayLogs.length;
+        const completed = dayLogs.filter(log => log.status_id === 2).length;
+
+        totalScheduled += scheduled;
+        totalTaken += completed;
+
+        let status = 'none';
+        if (scheduled > 0) {
+            if (completed === scheduled) {
+                status = 'completed';
+            } else if (completed > 0) {
+                status = 'partial';
+            } else {
+                status = 'missed';
+            }
+        }
+
+        return {
+            key: dayNames[index],
+            date: dayRow.date_str,
+            scheduled,
+            completed,
+            status
+        };
+    });
+
+    const percentage = totalScheduled > 0 ? Math.round((totalTaken / totalScheduled) * 100) : 0;
+
+    return { percentage, dosesTaken: totalTaken, totalDoses: totalScheduled, days };
 }
 
 /**

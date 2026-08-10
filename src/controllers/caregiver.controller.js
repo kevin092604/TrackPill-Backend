@@ -85,6 +85,7 @@ async function getPatientSummary(req, res, next) {
   try {
     const caregiverId = req?.user?.id;
     const patientId = req.params.patientId;
+    const timezone = req.headers['x-timezone'] || req.query.timezone || 'America/Tegucigalpa';
 
     if (!caregiverId) {
       throw createHttpError(401, 'Usuario no autenticado.', 'unauthorized');
@@ -94,7 +95,7 @@ async function getPatientSummary(req, res, next) {
        throw createHttpError(400, 'El ID del paciente es requerido.', 'missing_patient_id');
     }
 
-    const data = await caregiverService.getPatientSummary(caregiverId, patientId);
+    const data = await caregiverService.getPatientSummary(caregiverId, patientId, timezone);
 
     res.status(200).json({
       success: true,

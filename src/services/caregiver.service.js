@@ -33,14 +33,14 @@ async function assertActiveAcceptedRelationship(caregiverId, patientId) {
  * @param {string|number} patientId ID del paciente a consultar
  * @returns {Promise<Object>} Resumen del paciente
  */
-async function getPatientSummary(caregiverId, patientId) {
+async function getPatientSummary(caregiverId, patientId, timezone = 'America/Tegucigalpa') {
 
   const [relationship, patientUser, nextDoseData, recentActivityData, complianceData, todayStats, criticalInv] = await Promise.all([
       assertActiveAcceptedRelationship(caregiverId, patientId),
       User.findById(patientId),
       PatientModel.getNextDose(patientId),
       PatientModel.getRecentActivity(patientId),
-      PatientModel.getWeeklyCompliance(patientId),
+      PatientModel.getWeeklyCompliance(patientId, timezone),
       PatientModel.getTodayStats(patientId),
       PatientModel.getCriticalInventory(patientId),
   ]);
