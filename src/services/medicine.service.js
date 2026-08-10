@@ -331,7 +331,7 @@ async function registerDoseStatus(medicineId, doseId, userId, payload) {
 
   return db.transaction(async (client) => {
     const updatedLog = await MedicationLog.updateStatus(
-      doseId,
+      dose.id,
       statusId,
       result.data.status === 'tomada' ? new Date() : null,
       client,
