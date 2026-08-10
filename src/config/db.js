@@ -26,6 +26,8 @@ async function connectDB() {
     await runPharmacyFavoritesMigration(client);
     const runSearchHistoryAndLocationsMigration = require('../migrations/add-pharmacy-search-history-and-locations');
     await runSearchHistoryAndLocationsMigration(client);
+    const runConversationsPatientIdMigration = require('../migrations/add-conversations-patient-id-column');
+    await runConversationsPatientIdMigration(client);
   } finally {
     client.release();
   }
