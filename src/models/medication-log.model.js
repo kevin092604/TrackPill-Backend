@@ -13,11 +13,32 @@ function mapLog(row) {
 }
 
 async function findByIdForMedicine(id, medicineId, client = db) {
+  // NUEVO: Si recibimos una fecha, buscamos la dosis exacta de esa hora
+  if (typeof id === 'string' && id.startsWith('date:')) {
+    const isoString = id.replace('date:', '');
+    const result = await client.query(
+      `SELECT * FROM medicine_stock.medication_logs 
+       WHERE medicine_id = $1 
+         AND scheduled_time = $2::timestamptz 
+       LIMIT 1`,
+      [medicineId, isoString]
+    );
+    return mapLog(result.rows[0]);
+  }
+  // FALLBACK (Por si le das tap a una alarma vieja que ya estaba sonando hoy)
+  if (id === 'next') {
+    const result = await client.query(
+      `SELECT * FROM medicine_stock.medication_logs 
+       WHERE medicine_id = $1 AND status_id IN (1, 3) 
+       ORDER BY scheduled_time ASC LIMIT 1`,
+      [medicineId]
+    );
+    return mapLog(result.rows[0]);
+  }
   const result = await client.query(
     `SELECT * FROM medicine_stock.medication_logs WHERE id = $1 AND medicine_id = $2`,
     [id, medicineId],
   );
-
   return mapLog(result.rows[0]);
 }
 
