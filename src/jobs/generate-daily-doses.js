@@ -17,7 +17,17 @@ async function generateDailyDoses(targetDate = null) {
         if (targetDate) {
             datesToProcess.push(new Date(targetDate));
         } else {
-            const today = new Date();
+            // Primero obtenemos la hora real en Honduras
+            const formatter = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'America/Tegucigalpa',
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+            });
+            const parts = formatter.formatToParts(new Date());
+            const p = {};
+            parts.forEach(({ type, value }) => { p[type] = value; });
+            // Creamos un objeto Date basado en Honduras y no en UTC
+            const today = new Date(`${p.year}-${p.month}-${p.day}T00:00:00-06:00`);
             const tomorrow = new Date(today);
             tomorrow.setDate(tomorrow.getDate() + 1);
             datesToProcess.push(today, tomorrow);
